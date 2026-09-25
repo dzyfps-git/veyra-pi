@@ -27,6 +27,7 @@ import { runDetectors, type DetectorHit, type Feasibility } from './detectors.ts
 import { prioritise, type PriorityBreakdown, type Risk, type Actionability, type KnowledgeVerdict, type Outlook } from './priority.ts';
 import { isLibraryFrame, ownerStep, parseMixin } from './owner.ts';
 import { installedMods, lookupKnowledge, matchRegister, type KnowledgeMatch, type RegisterMatch } from './knowledge.ts';
+import { storedRechecks } from './recheck.ts';
 import { latestSeasonId } from '../query/queries.ts';
 import type { PathRow, FrameCategory } from '../decode/aggregate.ts';
 
@@ -299,6 +300,7 @@ export function findings(db: DatabaseSync, query: FindingsQuery = {}): Finding[]
   const resolved = resolvePaths(db, eligible.map((row) => row.path_id));
 
   const installed = installedMods(db, seasonId);
+  const rechecks = storedRechecks(db);
   const out: Finding[] = [];
   for (const row of eligible) {
     const msPerTick = row.self_ms / Math.max(row.ticks, 1);
@@ -359,7 +361,7 @@ export function findings(db: DatabaseSync, query: FindingsQuery = {}): Finding[]
     };
 
     const hits = runDetectors({ rows: [asPathRow], divisorTicks: row.ticks });
-    const knowledge = lookupKnowledge(row.label, row.source_mod, msPerTick, installed);
+    const knowledge = lookupKnowledge(row.label, row.source_mod, msPerTick, installed, rechecks);
 
     // A detector or a prior investigation may raise feasibility to `likely`,
     // never to `proven`. Anything stronger has to come from a person reading

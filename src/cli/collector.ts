@@ -58,6 +58,7 @@ import { cleanupServer } from '../runtime/servercleanup.ts';
 import { ingestFile } from '../ingest/pipeline.ts';
 import { rebuildActivityRollups } from '../ingest/activityrebuild.ts';
 import { backfillIdentity } from '../ingest/identity.ts';
+import { measureRecheck, pendingRechecks, recheckText, saveRecheck } from '../analysis/recheck.ts';
 import { hasActivityRollups } from '../store/rollups.ts';
 import { findProfileFolders, importObservable, launcherRoots } from '../ingest/observable.ts';
 import { downloadRelease, latestRelease } from '../runtime/github.ts';
@@ -981,6 +982,7 @@ async function tick(): Promise<void> {
       if (Date.now() - lastHousekeepingAt > 86_400_000) {
         lastHousekeepingAt = Date.now();
         housekeeping(all, paused);
+        void recheckKnownIssues().catch((error: unknown) => log('warn', `known issues: ${(error as Error).message}`));
       }
       await checkSeasonRollover();
       await checkTopFindings();
@@ -1023,6 +1025,13 @@ function housekeeping(all: Runtime[], paused: boolean): void {
         'info',
         `local cleanup: removed ${local.removed} raw file(s) older than ${local.days} days (${(local.bytes / 1e6).toFixed(0)} MB); ` +
           `kept ${local.keptPinned} pinned, ${local.keptManual} of your own, ${local.keptForGoingBack} for going back`,
+      );
+    }
+    if ((local.detailRemoved ?? 0) > 0) {
+      log(
+        'info',
+        `local cleanup: removed per-minute detail for ${local.detailRemoved} capture(s) older than ${local.detailDays} days ` +
+          `(${((local.detailBytes ?? 0) / 1e6).toFixed(0)} MB)`,
       );
     }
   } catch (error) {
@@ -1154,6 +1163,43 @@ async function splitRollupsByActivity(): Promise<void> {
 async function fillIdentity(): Promise<void> {
   const pace = { allowed: () => heavyAllowed('identity', 'recording boots and method keys'), breathe, stopped: () => shuttingDown };
   await backfillIdentity(store, (source) => (source === null ? NO_MAPPINGS : currentMappings()), pace, (text) => log('info', text));
+}
+
+/**
+ * Known issues whose mod was updated: measured across the update once three
+ * days of the new version exist (analysis/recheck.ts). Rare -- only when such a
+ * mod is updated -- and paced like the other background work.
+ */
+let recheckRunning = false;
+async function recheckKnownIssues(): Promise<void> {
+  if (recheckRunning) return;
+  recheckRunning = true;
+  try {
+    const pace = { allowed: () => heavyAllowed('recheck', 're-checking known issues'), breathe, stopped: () => shuttingDown };
+    // Each result can make the next update in its chain due, so look again until nothing is.
+    for (;;) {
+      const due = pendingRechecks(store.db).filter((p) => p.readyAt <= Date.now());
+      if (due.length === 0 || shuttingDown) return;
+      for (const p of due) {
+        const result = await measureRecheck(
+          store.db,
+          p,
+          {
+            minEffect: settings.getNumber('analysis.validation.minEffectMsPerTick'),
+            minWindowsPerSide: settings.getNumber('analysis.validation.minWindowsPerSide'),
+            playerBucketSize: settings.getNumber('analysis.validation.playerBucketSize'),
+          },
+          (stored) => store.resolveDataPath(stored),
+          pace,
+        );
+        if (result === undefined) return;
+        saveRecheck(store.db, result);
+        log('info', `known issue ${p.entry.id}: ${recheckText(result, (v) => v.toFixed(2))} (${p.from} -> ${p.to})`);
+      }
+    }
+  } finally {
+    recheckRunning = false;
+  }
 }
 
 async function fillSplits(): Promise<void> {
@@ -1290,6 +1336,7 @@ setTimeout(
       .then(() => splitRollupsByActivity())
       .then(() => fillIdentity())
       .then(() => compressOldRaw())
+      .then(() => recheckKnownIssues())
       .catch((error: unknown) => log('warn', `older capture files: ${(error as Error).message}`)),
   60_000,
 ).unref?.();

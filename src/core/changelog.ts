@@ -18,6 +18,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.1.25',
+    date: '2026-09-25',
+    notes: [
+      'Per-minute detail is now removed after 90 days (Settings, Retention; 0 keeps it forever) and stored 17% smaller.',
+      'When a mod with a known issue updates, the app measures it across the update and shows whether it is still there, on Changes and Findings.',
+    ],
+  },
+  {
     version: '0.1.24',
     date: '2026-09-25',
     notes: ['Known issues show only on the exact mod version they were measured on, since other versions may have fixed them.'],

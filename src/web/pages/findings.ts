@@ -27,6 +27,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { findings, groupFindings, type Finding, type FindingGroup } from '../../analysis/findings.ts';
 import { priorityTag, evidenceTag, TERMS_STYLE } from '../terms.ts';
 import { outcomeText } from '../../analysis/knowledge.ts';
+import { recheckText } from '../../analysis/recheck.ts';
 import { SYSTEMS, explainWait, type SystemKey } from '../../analysis/systems.ts';
 import { isLibraryFrame, meaningfulFrame, ownerOfPath, readableMethod } from '../../analysis/owner.ts';
 import { placesOf, splitFor, subjectsOf, type SplitResult } from '../../analysis/split.ts';
@@ -187,7 +188,11 @@ function renderDetails(row: Row): string {
   const knowledge = f.knowledge
     .map(
       (k) => `<div class="note" style="margin:8px 0 0;border-left-color:var(--accent)"><b>Seen before: ${esc(k.entry.title)}</b>
-        <span class="tag">${esc(outcomeText(k.entry.outcome))}</span> <span class="faint">on ${esc(k.entry.mod)} ${esc(k.entry.modVersion)}, ${esc(k.entry.when)}</span>
+        <span class="tag">${esc(outcomeText(k.entry.outcome))}</span> <span class="faint">on ${esc(k.entry.mod)} ${esc(k.entry.modVersion)}, ${esc(k.entry.when)}</span>${
+          k.confirmed === undefined
+            ? ''
+            : `<div style="margin-top:4px"><b>${esc(recheckText(k.confirmed, (v) => num(v, 2)))}</b>, measured across the update on ${esc(when(k.confirmed.at))}.</div>`
+        }
         <div style="margin-top:4px">${esc(k.entry.finding)}</div><div class="faint" style="margin-top:4px">${esc(k.entry.resolution)}</div></div>`,
     )
     .join('');

@@ -21,6 +21,7 @@
 
 import { OUTLOOKS } from '../analysis/priority.ts';
 import { outcomeText } from '../analysis/knowledge.ts';
+import { recheckText } from '../analysis/recheck.ts';
 import type { Finding } from '../analysis/findings.ts';
 import * as q from '../query/queries.ts';
 import type { DatabaseSync } from 'node:sqlite';
@@ -187,7 +188,9 @@ export function renderHandoff(
       : finding.knowledge
           .map(
             (k) =>
-              `- **${k.entry.title}** — ${outcomeText(k.entry.outcome)}, on ${k.entry.mod} ${k.entry.modVersion}, ${k.entry.when}.\n` +
+              `- **${k.entry.title}** — ${outcomeText(k.entry.outcome)}, on ${k.entry.mod} ${k.entry.modVersion}, ${k.entry.when}` +
+              (k.confirmed === undefined ? '' : `; ${recheckText(k.confirmed, (v) => v.toFixed(2))}, measured across the update`) +
+              '.\n' +
               `  Found: ${k.entry.finding}\n` +
               `  Outcome: ${k.entry.resolution}\n` +
               (k.entry.lastMsPerTick === undefined

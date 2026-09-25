@@ -28,16 +28,22 @@
  * each row's index into it. Self-contained on purpose: a sidecar never refers
  * to database ids, so a restored or rebuilt database cannot misread it.
  * Measured at +43-64% per file (+47% on a day of 5-minute captures).
+ *
+ * Compressed at zstd level 9: 17% smaller than the default level for ~10 ms
+ * more CPU per capture, measured on a day of live sidecars. Higher levels save
+ * up to 30% but cost 100-200 ms each on the PC that also runs the server.
+ * Reading is equally fast at any level.
  */
 
 import { readFileSync, renameSync, writeFileSync, rmSync } from 'node:fs';
-import { zstdCompressSync, zstdDecompressSync } from 'node:zlib';
+import { zstdCompressSync, zstdDecompressSync, constants as zlibConstants } from 'node:zlib';
 
 import type { FrameCategory } from '../decode/aggregate.ts';
 
 export const SIDECAR_VERSION = 2;
 export const READABLE_SIDECAR_VERSIONS: readonly number[] = [1, 2];
 const PATH_SEPARATOR = ' > ';
+const SIDECAR_ZSTD_LEVEL = 9;
 
 const CATEGORY_CODES: Record<FrameCategory, number> = {
   work: 0,
@@ -214,7 +220,9 @@ export function encodeSidecar(captureSha: string, windows: readonly number[], ro
     });
     payload.keys = keys;
   }
-  return zstdCompressSync(Buffer.from(JSON.stringify(payload), 'utf8'));
+  return zstdCompressSync(Buffer.from(JSON.stringify(payload), 'utf8'), {
+    params: { [zlibConstants.ZSTD_c_compressionLevel]: SIDECAR_ZSTD_LEVEL },
+  });
 }
 
 export function decodeSidecar(compressed: Buffer): Sidecar {

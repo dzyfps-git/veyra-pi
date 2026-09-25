@@ -117,6 +117,41 @@ describe('local cleanup', () => {
     assert.equal(record.archive_path, null, 'the capture stays; only its raw file goes');
     assert.equal(lastCleanup(store)?.removed, 1);
   });
+
+  function withDetail(c: { id: number; file: string }): string {
+    const file = c.file.replace(/\.sparkprofile(\.zst)?$/, '.sidecar.zst');
+    writeFileSync(file, 'detail');
+    store.db.prepare('UPDATE capture SET sidecar_path = ? WHERE id = ?').run(store.toStoredPath(file), c.id);
+    return file;
+  }
+  const detailOf = (id: number): string | null =>
+    (store.db.prepare('SELECT sidecar_path FROM capture WHERE id = ?').get(id) as { sidecar_path: string | null }).sidecar_path;
+
+  test('per-minute detail expires on its own window, keeping pinned and your own', () => {
+    settings.apply({ 'retention.rawDays': 15, 'retention.sidecarDays': 90 }, { actor: 'test' });
+    const old = capture('old', { ageDays: 100 });
+    const recent = capture('recent', { ageDays: 60 });
+    const pinned = capture('pinned', { ageDays: 100, pinned: true });
+    const mine = capture('mine', { ageDays: 100, manual: true });
+    const [oldDetail, recentDetail, pinnedDetail, mineDetail] = [old, recent, pinned, mine].map(withDetail);
+
+    const summary = cleanupLocal(store, settings, { now: NOW });
+    assert.equal(summary.detailRemoved, 1);
+    assert.equal(existsSync(oldDetail!), false);
+    assert.equal(detailOf(old.id), null, 'the record stops pointing at it first');
+    for (const kept of [recentDetail, pinnedDetail, mineDetail]) assert.ok(existsSync(kept!), kept);
+    assert.equal(summary.removed, 2, 'raw files follow their own, shorter window');
+  });
+
+  test('0 keeps per-minute detail forever', () => {
+    settings.apply({ 'retention.sidecarDays': 0 }, { actor: 'test' });
+    const ancient = capture('ancient', { ageDays: 3000 });
+    const detail = withDetail(ancient);
+    const summary = cleanupLocal(store, settings, { now: NOW });
+    assert.equal(summary.detailRemoved, 0);
+    assert.ok(existsSync(detail));
+    assert.notEqual(detailOf(ancient.id), null);
+  });
 });
 
 describe('server cleanup', () => {

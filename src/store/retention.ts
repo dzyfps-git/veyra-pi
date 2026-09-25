@@ -17,6 +17,14 @@
  *                        anything recorded since the last update while going
  *                        back is still possible, because going back re-imports
  *                        those from their raw files.
+ *
+ *                        Then the same for per-minute detail (sidecars) past
+ *                        their own, longer window, unless that is 0 (keep
+ *                        forever). The daily ledger and Findings are
+ *                        unaffected; minute and spike views, hour ranges and
+ *                        before/after comparisons are not available for those
+ *                        days any more. Pinned captures and your own profiles
+ *                        keep their detail too.
  */
 
 import { createHash } from 'node:crypto';
@@ -61,6 +69,11 @@ export interface CleanupSummary {
   keptManual: number;
   keptForGoingBack: number;
   days: number;
+  /** Per-minute detail files removed; absent in summaries written before detail expired. */
+  detailRemoved?: number;
+  detailBytes?: number;
+  /** The detail window used, 0 = kept forever. */
+  detailDays?: number;
 }
 
 /**
@@ -112,8 +125,40 @@ export function cleanupLocal(
     summary.removed += 1;
     summary.bytes += size;
   }
+
+  const detail = cleanupDetail(store, settings.getNumber('retention.sidecarDays'), now);
+  summary.detailRemoved = detail.removed;
+  summary.detailBytes = detail.bytes;
+  summary.detailDays = detail.days;
   store.setMeta('cleanup.local.last', JSON.stringify(summary));
   return summary;
+}
+
+/** Per-minute detail past `days` (0 = keep forever), except pinned captures and your own. */
+function cleanupDetail(store: Store, days: number, now: number): { removed: number; bytes: number; days: number } {
+  const out = { removed: 0, bytes: 0, days };
+  if (days <= 0) return out;
+  const old = store.db
+    .prepare(
+      `SELECT id, sidecar_path FROM capture
+        WHERE sidecar_path IS NOT NULL AND started_at IS NOT NULL AND started_at < ? AND pinned = 0 AND is_manual = 0`,
+    )
+    .all(now - days * 86_400_000) as Array<{ id: number; sidecar_path: string }>;
+  const forget = store.db.prepare('UPDATE capture SET sidecar_path = NULL WHERE id = ?');
+  for (const c of old) {
+    const file = store.resolveDataPath(c.sidecar_path);
+    let size = 0;
+    try {
+      if (file !== undefined) size = statSync(file).size;
+    } catch {
+      // Already gone: only the record needs updating.
+    }
+    forget.run(c.id);
+    if (file !== undefined) rmSync(file, { force: true });
+    out.removed += 1;
+    out.bytes += size;
+  }
+  return out;
 }
 
 export function lastCleanup(store: Pick<Store, 'getMeta'>): CleanupSummary | undefined {

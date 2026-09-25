@@ -264,11 +264,16 @@ function storagePanel(store: Store, settings: SettingsStore): string {
       'Cleanup',
       last === undefined ? 'Not run yet' : `Last run ${esc(when(last.at))}`,
       last === undefined
-        ? `Raw files older than ${settings.getNumber('retention.rawDays')} days are removed when the app starts and once a day (Retention, below).`
-        : `Removed ${last.removed} raw file${last.removed === 1 ? '' : 's'} older than ${last.days} days (${esc(bytes(last.bytes))}). ` +
-          `Kept ${last.keptPinned} pinned, ${last.keptManual} of your own` +
+        ? `Raw files older than ${settings.getNumber('retention.rawDays')} days` +
+          (settings.getNumber('retention.sidecarDays') > 0 ? `, and per-minute detail older than ${settings.getNumber('retention.sidecarDays')} days,` : '') +
+          ' are removed when the app starts and once a day (Retention, below).'
+        : `Removed ${last.removed} raw file${last.removed === 1 ? '' : 's'} older than ${last.days} days (${esc(bytes(last.bytes))})` +
+          ((last.detailRemoved ?? 0) > 0
+            ? ` and per-minute detail for ${last.detailRemoved} older than ${last.detailDays} days (${esc(bytes(last.detailBytes ?? 0))})`
+            : '') +
+          `. Kept ${last.keptPinned} pinned, ${last.keptManual} of your own` +
           (last.keptForGoingBack > 0 ? `, and ${last.keptForGoingBack} needed for going back to the previous version` : '') +
-          '. What was measured from removed files stays.',
+          '. The daily history measured from removed files stays.',
       '',
     );
   })()}

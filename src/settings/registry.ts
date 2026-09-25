@@ -247,18 +247,17 @@ export const SETTINGS: readonly SettingDef[] = [
   {
     key: 'retention.sidecarDays',
     label: 'Keep per-capture detail for',
-    help: 'How long to keep per-minute detail, used by minute views and comparisons (about 2.5 MB an hour).',
+    help:
+      'How long to keep per-minute detail (about 50 MB a day at 5-minute captures). Minute and spike views, hour ranges and ' +
+      'before/after comparisons need it; the daily history and Findings do not. Pinned captures and your own profiles keep theirs. 0 keeps it forever.',
     type: 'integer',
     default: 90,
     group: 'Retention',
     advanced: false,
     risk: 'safe',
-    planned:
-      'Per-minute detail is kept for now: nothing removes it yet (about 57 MB a day, 21 GB a year, with method keys). Removing it would make hour ranges, spike views ' +
-      'and patch comparisons impossible for those days, so it waits until space actually calls for it.',
     appliesAt: 'Next cleanup run',
-    unit: 'days',
-    min: 1,
+    unit: 'days (0 = forever)',
+    min: 0,
     max: 3650,
   },
   {

@@ -41,6 +41,8 @@ import { coverage } from '../../store/health.ts';
 import type { SettingsStore } from '../../settings/store.ts';
 import type { Store } from '../../store/db.ts';
 import { ownModPrefixes } from '../../analysis/priority.ts';
+import { KNOWLEDGE } from '../../analysis/knowledge.ts';
+import { pendingRechecks, recheckText, storedRechecks } from '../../analysis/recheck.ts';
 
 function prefixes(settings: SettingsStore): string[] {
   return ownModPrefixes(settings.getString('analysis.ownMods'));
@@ -67,6 +69,28 @@ function detectedView(store: Store, settings: SettingsStore, serverId?: string):
         .all() as Array<{ id: number; ordinal: number; label: string | null; os_name: string }>
     ).map((r) => [r.id, r.label ?? `Season ${r.ordinal} · ${r.os_name.split(' ')[0]}`]),
   );
+  // Known issues whose mod this change updated: measured across it, or waiting to be.
+  const rechecks = storedRechecks(store.db);
+  const pending = pendingRechecks(store.db, rechecks);
+  const titleOf = (id: string): string => KNOWLEDGE.find((e) => e.id === id)?.title ?? id;
+  const knownIssues = (revisionId: number): string =>
+    [
+      ...rechecks
+        .filter((r) => r.revisionId === revisionId)
+        .map(
+          (r) => `<div class="help" style="margin-top:6px"><span class="tag accent">known issue</span> ${esc(titleOf(r.entryId))}:
+            <b title="${esc(r.explanation)}">${esc(recheckText(r, (v) => num(v, 2)))}</b>${
+              r.otherChanges > 0 ? `<span class="faint">, measured with ${r.otherChanges} other mod change${r.otherChanges === 1 ? '' : 's'} in the same update</span>` : ''
+            }.${r.state === 'unclear' ? ` <span class="faint">${esc(r.explanation)}</span>` : ''}</div>`,
+        ),
+      ...pending
+        .filter((p) => p.revisionId === revisionId)
+        .map(
+          (p) => `<div class="help" style="margin-top:6px"><span class="tag">known issue</span> ${esc(titleOf(p.entry.id))}:
+            ${p.readyAt > Date.now() ? `re-checked on ${esc(p.to)} after ${esc(when(p.readyAt))}` : `being re-checked on ${esc(p.to)}`}.</div>`,
+        ),
+    ].join('');
+
   if (changes.length === 0) {
     return `<div class="empty">No mod or JVM changes detected yet. They appear here automatically when the
       mod list in a capture differs from the one before it, within the same season.</div>`;
@@ -108,6 +132,7 @@ function detectedView(store: Store, settings: SettingsStore, serverId?: string):
                 .map(row)
                 .join('')}</details>`
         }
+        ${knownIssues(c.revisionId)}
         ${wholeServer(store, serverId, c)}
         <div class="help faint" style="margin-top:4px">
           Went live between ${esc(when(c.previousSeenAt))} and ${esc(when(c.at))}.

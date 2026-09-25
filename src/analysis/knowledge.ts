@@ -26,6 +26,7 @@
  */
 
 import type { Feasibility } from './detectors.ts';
+import type { Recheck } from './recheck.ts';
 import type { DatabaseSync } from 'node:sqlite';
 
 export type KnowledgeOutcome =
@@ -253,13 +254,22 @@ export interface KnowledgeMatch {
    * there is no comparison to qualify.
    */
   caveat?: string;
+  /** Installed is a newer version, on which a re-check measured the issue still there. */
+  confirmed?: Recheck;
+}
+
+/** A measured re-check found the issue on this exact version: the entry applies there too. */
+export function confirmedOn(entry: KnowledgeEntry, version: string | undefined, rechecks: readonly Recheck[]): Recheck | undefined {
+  if (version === undefined) return undefined;
+  return rechecks.find((r) => r.entryId === entry.id && r.to === version && (r.state === 'still-there' || r.state === 'worse'));
 }
 
 /**
  * Look up prior work for one frame.
  *
  * An entry applies only while the exact mod version it was measured on is
- * installed (`installed`: mod id -> version). The mod filter is applied only
+ * installed (`installed`: mod id -> version), or a version a re-check after an
+ * update measured it still present on (`rechecks`, see recheck.ts). The mod filter is applied only
  * when the frame is attributed. An unattributed frame still matches on the
  * label, because attribution is frequently missing and refusing to match on
  * that basis would make the knowledge base useless exactly when it is most
@@ -270,10 +280,13 @@ export function lookupKnowledge(
   sourceMod: string | null,
   msPerTick: number,
   installed: ReadonlyMap<string, string>,
+  rechecks: readonly Recheck[] = [],
 ): KnowledgeMatch[] {
   const out: KnowledgeMatch[] = [];
   for (const entry of KNOWLEDGE) {
-    if (installed.get(entry.mod) !== entry.modVersion) continue;
+    const version = installed.get(entry.mod);
+    const confirmed = version === entry.modVersion ? undefined : confirmedOn(entry, version, rechecks);
+    if (version !== entry.modVersion && confirmed === undefined) continue;
     if (!entry.match.test(label)) continue;
     if (sourceMod !== null && sourceMod !== '' && !sourceMod.includes(entry.mod)) {
       continue;
@@ -289,7 +302,10 @@ export function lookupKnowledge(
         'It is a different capture, not an earlier point on this series, so treat the direction as a prompt ' +
         'to look rather than as a measured change. The A/B validator is what measures a change.';
     }
-    out.push(caveat === undefined ? { entry, comparison } : { entry, comparison, caveat });
+    const match: KnowledgeMatch = { entry, comparison };
+    if (caveat !== undefined) match.caveat = caveat;
+    if (confirmed !== undefined) match.confirmed = confirmed;
+    out.push(match);
   }
   return out;
 }
