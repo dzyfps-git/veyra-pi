@@ -28,6 +28,8 @@ import { findings, groupFindings, type Finding, type FindingGroup } from '../../
 import { priorityTag, evidenceTag, TERMS_STYLE } from '../terms.ts';
 import { outcomeText } from '../../analysis/knowledge.ts';
 import { recheckText } from '../../analysis/recheck.ts';
+import { attributionFor } from '../../envx/lookup.ts';
+import { envxBlock } from '../envx.ts';
 import { SYSTEMS, explainWait, type SystemKey } from '../../analysis/systems.ts';
 import { isLibraryFrame, meaningfulFrame, ownerOfPath, readableMethod } from '../../analysis/owner.ts';
 import { placesOf, splitFor, subjectsOf, type SplitResult } from '../../analysis/split.ts';
@@ -171,7 +173,7 @@ function slices(items: Array<{ key: string; name: string; about?: string; mspt: 
 }
 
 /** A finding's Details, loaded when opened (they were two thirds of the page). */
-function renderDetails(row: Row): string {
+function renderDetails(row: Row, envx = ''): string {
   const g = row.group;
   const f = g.lead;
   const paths =
@@ -230,7 +232,7 @@ function renderDetails(row: Row): string {
         mod ${f.attribution === 'via-path' ? `inferred from the call path (${esc(row.owner)} may only be passing through)` : 'identified from the capture'}
       </div>
       ${paths}
-      ${tracked}${knowledge}${detectors}
+      ${tracked}${knowledge}${envx}${detectors}
       <div class="actions">${trackButton}${setAside}</div>`;
 }
 
@@ -650,7 +652,9 @@ export function findingsPage(
 
   if (options.detail !== undefined) {
     const row = rows.find((r) => r.group.key === options.detail);
-    return row === undefined ? '<div class="empty">This finding is no longer in the list; refresh the page.</div>' : renderDetails(row);
+    return row === undefined
+      ? '<div class="empty">This finding is no longer in the list; refresh the page.</div>'
+      : renderDetails(row, envxBlock(attributionFor(db, row.group.lead.pathId, seasonId)));
   }
 
   let list = rows.filter((r) => r.investigation === undefined || r.investigation.state === 'active' || r.back === true);

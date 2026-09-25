@@ -234,6 +234,9 @@ export class Store {
     // NULL -- unknown -- where there is none.
     if (from < 15) this.#addColumn('capture', 'boot_id', 'INTEGER REFERENCES boot(id)');
 
+    // v16: envx answers (envx_match, envx_answer). New tables only, from the
+    // CREATE statements; empty until envx is set up.
+
     this.setMeta('schema_version', String(SCHEMA_VERSION));
   }
 

@@ -59,6 +59,8 @@ import { ingestFile } from '../ingest/pipeline.ts';
 import { rebuildActivityRollups } from '../ingest/activityrebuild.ts';
 import { backfillIdentity } from '../ingest/identity.ts';
 import { measureRecheck, pendingRechecks, recheckText, saveRecheck } from '../analysis/recheck.ts';
+import { ProcessEnvxClient } from '../envx/client.ts';
+import { refreshEnvx } from '../envx/lookup.ts';
 import { hasActivityRollups } from '../store/rollups.ts';
 import { findProfileFolders, importObservable, launcherRoots } from '../ingest/observable.ts';
 import { downloadRelease, latestRelease } from '../runtime/github.ts';
@@ -986,6 +988,7 @@ async function tick(): Promise<void> {
       }
       await checkSeasonRollover();
       await checkTopFindings();
+      void refreshEnvxAnswers();
       await notifier.flush();
     }
     if (Date.now() - lastGithubAt > 6 * 3_600_000 && Date.now() - COLLECTOR_STARTED_AT > 2 * 60_000) void checkGithub();
@@ -1170,6 +1173,38 @@ async function fillIdentity(): Promise<void> {
  * days of the new version exist (analysis/recheck.ts). Rare -- only when such a
  * mod is updated -- and paced like the other background work.
  */
+/**
+ * envx, when set up: which jar owns the top findings' methods and which
+ * mixins target them (envx/lookup.ts). Answers are kept per envx snapshot, so
+ * after the first run for a mod set this is database reads only; envx runs
+ * (a JVM start, below-normal priority) only for what is new.
+ */
+let envxRunning = false;
+let lastEnvxAt = 0;
+async function refreshEnvxAnswers(): Promise<void> {
+  const command = settings.getString('analysis.envxCommand');
+  if (command === '' || envxRunning || Date.now() - lastEnvxAt < 15 * 60_000) return;
+  envxRunning = true;
+  lastEnvxAt = Date.now();
+  try {
+    const client = new ProcessEnvxClient(command);
+    for (const rt of runtimes.values()) {
+      if (rt.config.collection === 'off') continue;
+      const seasonId = q.latestSeasonId(store.db, rt.config.id);
+      if (seasonId === undefined) continue;
+      const top = findings(store.db, { limit: 60, seasonId, ownMod: ownModMatcher(settings.getString('analysis.ownMods')) });
+      const result = await refreshEnvx(store.db, client, top.map((f) => f.pathId), { env: settings.getString('analysis.envxEnv'), seasonId });
+      store.setMeta('envx.last', JSON.stringify(result));
+      if (result.answered > 0) log('info', `envx: ${result.answered} answer(s) for ${rt.config.displayName}`);
+      for (const m of result.mismatches.slice(0, 5)) log('warn', `envx answer does not match its contract: ${m}`);
+    }
+  } catch (error) {
+    log('warn', `envx: ${(error as Error).message}`);
+  } finally {
+    envxRunning = false;
+  }
+}
+
 let recheckRunning = false;
 async function recheckKnownIssues(): Promise<void> {
   if (recheckRunning) return;

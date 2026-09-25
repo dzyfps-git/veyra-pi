@@ -497,6 +497,31 @@ export const SETTINGS: readonly SettingDef[] = [
     appliesAt: 'Within 10 minutes',
   },
 
+  {
+    key: 'analysis.envxCommand',
+    label: 'envx program',
+    help:
+      'Optional. The envx launcher (envx, or envx.bat on Windows), version 1.1 or later. When set, Findings name which mod jar ' +
+      'likely owns a hot method and which mixins target it. envx only answers questions; nothing measured here is sent to it.',
+    type: 'path',
+    default: '',
+    group: 'Collection',
+    advanced: true,
+    risk: 'safe',
+    appliesAt: 'Within 15 minutes',
+  },
+  {
+    key: 'analysis.envxEnv',
+    label: 'envx environment',
+    help: 'The envx environment of this server. Empty uses envx’s default environment.',
+    type: 'string',
+    default: '',
+    group: 'Collection',
+    advanced: true,
+    risk: 'safe',
+    appliesAt: 'Within 15 minutes',
+  },
+
   // ------------------------------------------------------------------ Analysis
   {
     key: 'analysis.ownMods',

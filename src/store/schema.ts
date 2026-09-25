@@ -24,7 +24,7 @@
  * own column so they can change freely without orphaning history.
  */
 
-export const SCHEMA_VERSION = 15;
+export const SCHEMA_VERSION = 16;
 
 export const SCHEMA_SQL = `
 PRAGMA journal_mode = WAL;
@@ -337,6 +337,37 @@ CREATE TABLE IF NOT EXISTS frame_key_seen (
   PRIMARY KEY (key_id, frame_id)
 ) WITHOUT ROWID;
 CREATE INDEX IF NOT EXISTS key_seen_by_frame ON frame_key_seen (frame_id);
+
+-- Answers from envx (v16), an optional separate index of the server's mods
+-- (envx/). Kept here because envx stores nothing for its callers. Every
+-- answer is tied to the envx snapshot it was given for, by fingerprint, so a
+-- later envx resync can never change an old answer; the modset is kept with
+-- it for grouping. envx_version records which envx gave it.
+--
+-- envx_match: which envx snapshot ran a mod set (our modset hash -> the
+-- fingerprint used for lookups), or 'none'.
+CREATE TABLE IF NOT EXISTS envx_match (
+  modset        TEXT PRIMARY KEY,
+  status        TEXT NOT NULL,
+  fingerprint   TEXT,
+  snapshot_ids  TEXT,
+  envx_modset   TEXT,
+  envx_version  TEXT NOT NULL,
+  checked_at    INTEGER NOT NULL,
+  detail        TEXT
+);
+-- envx_answer: one owner or mixins answer per (key, snapshot).
+CREATE TABLE IF NOT EXISTS envx_answer (
+  op            TEXT NOT NULL,
+  lookup_key    TEXT NOT NULL,
+  fingerprint   TEXT NOT NULL,
+  modset        TEXT NOT NULL,
+  status        TEXT,
+  result        TEXT NOT NULL,
+  envx_version  TEXT NOT NULL,
+  answered_at   INTEGER NOT NULL,
+  PRIMARY KEY (op, lookup_key, fingerprint)
+) WITHOUT ROWID;
 
 -- Call paths as a PREFIX TREE, not as strings.
 --
