@@ -71,6 +71,11 @@ function seed(store: Store): number {
                11.4,28.9,0.31,44.8,'D:/archive/testprofile.sparkprofile')`,
     )
     .run(season, revision);
+  // Installed at the version the Lootr known issue was measured on, so it applies.
+  store.db.prepare(`INSERT INTO mod (mod_id) VALUES ('lootr')`).run();
+  store.db
+    .prepare(`INSERT INTO capture_mod (capture_id, mod, version) SELECT max(c.id), m.id, '0.7.35.86' FROM capture c, mod m WHERE m.mod_id = 'lootr'`)
+    .run();
 
   // One costly path: a mod-owned frame under the tick.
   const tickFrame = store.internFrame(

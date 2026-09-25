@@ -187,7 +187,7 @@ export function renderHandoff(
       : finding.knowledge
           .map(
             (k) =>
-              `- **${k.entry.title}** — ${outcomeText(k.entry.outcome)}, ${k.entry.when}.\n` +
+              `- **${k.entry.title}** — ${outcomeText(k.entry.outcome)}, on ${k.entry.mod} ${k.entry.modVersion}, ${k.entry.when}.\n` +
               `  Found: ${k.entry.finding}\n` +
               `  Outcome: ${k.entry.resolution}\n` +
               (k.entry.lastMsPerTick === undefined

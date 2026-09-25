@@ -187,7 +187,7 @@ function renderDetails(row: Row): string {
   const knowledge = f.knowledge
     .map(
       (k) => `<div class="note" style="margin:8px 0 0;border-left-color:var(--accent)"><b>Seen before: ${esc(k.entry.title)}</b>
-        <span class="tag">${esc(outcomeText(k.entry.outcome))}</span> <span class="faint">${esc(k.entry.when)}</span>
+        <span class="tag">${esc(outcomeText(k.entry.outcome))}</span> <span class="faint">on ${esc(k.entry.mod)} ${esc(k.entry.modVersion)}, ${esc(k.entry.when)}</span>
         <div style="margin-top:4px">${esc(k.entry.finding)}</div><div class="faint" style="margin-top:4px">${esc(k.entry.resolution)}</div></div>`,
     )
     .join('');

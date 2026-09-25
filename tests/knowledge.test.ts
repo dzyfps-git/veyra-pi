@@ -15,6 +15,9 @@ import * as path from 'node:path';
 
 import { Store } from '../src/store/db.ts';
 import { KNOWLEDGE, lookupKnowledge, matchRegister, outcomeText } from '../src/analysis/knowledge.ts';
+
+/** Every entry's own mod at the exact version it was measured on. */
+const MEASURED = new Map(KNOWLEDGE.map((k) => [k.mod, k.modVersion]));
 import { mixinOwner } from '../src/analysis/findings.ts';
 import { Register } from '../src/analysis/register.ts';
 import { importLegacy, parseLeaderboard, parseIndex, parseMspt } from '../src/ingest/legacy.ts';
@@ -55,12 +58,11 @@ describe('matching real frame labels', () => {
     ['net.minecraft.server.world.ServerWorld.handler$gfk000$openpartiesandclaims$onIsNaturalSpawningAllowed', null, 'opac-spawn-permission'],
     ['net.minecraft.world.SpawnHelper.wrapOperation$jlb000$the_bumblezone$bumblezone$onEntitySpawn', null, 'bumblezone-spawn-event'],
     ['net.minecraft.world.World.handler$cap000$blockswap$isIncompatibleBlock', null, 'blockswap-retrogen'],
-    ['net.minecraft.advancement.criterion.AbstractCriterion.trigger', null, 'inventory-criterion'],
   ];
 
   for (const [label, mod, expected] of cases) {
     test(`${label.split('.').pop()} matches ${expected}`, () => {
-      const hits = lookupKnowledge(label, mod, 1);
+      const hits = lookupKnowledge(label, mod, 1, MEASURED);
       assert.ok(
         hits.some((h) => h.entry.id === expected),
         `expected ${expected}, got ${hits.map((h) => h.entry.id).join(', ') || 'nothing'}`,
@@ -69,19 +71,38 @@ describe('matching real frame labels', () => {
   }
 
   test('an unrelated frame matches nothing', () => {
-    assert.deepEqual(lookupKnowledge('com.example.Totally.unrelated', null, 1), []);
+    assert.deepEqual(lookupKnowledge('com.example.Totally.unrelated', null, 1, MEASURED), []);
   });
 
   test('the mod filter does not reject an unattributed frame', () => {
     // Attribution is frequently missing. Refusing to match on that basis
     // would disable the knowledge base exactly when it is most needed.
-    const hits = lookupKnowledge('noobanidus.mods.lootr.ticker.TileTicker.onServerTick', null, 1);
+    const hits = lookupKnowledge('noobanidus.mods.lootr.ticker.TileTicker.onServerTick', null, 1, MEASURED);
     assert.ok(hits.some((h) => h.entry.id === 'lootr-tileticker'));
   });
 
   test('the mod filter does reject a different attributed mod', () => {
-    const hits = lookupKnowledge('noobanidus.mods.lootr.ticker.TileTicker.onServerTick', 'lithium', 1);
+    const hits = lookupKnowledge('noobanidus.mods.lootr.ticker.TileTicker.onServerTick', 'lithium', 1, MEASURED);
     assert.ok(!hits.some((h) => h.entry.id === 'lootr-tileticker'));
+  });
+});
+
+describe('only on the version it was measured on', () => {
+  const label = 'noobanidus.mods.lootr.ticker.TileTicker.onServerTick';
+  test('every entry names its mod and exact version', () => {
+    for (const entry of KNOWLEDGE) {
+      assert.ok(entry.mod.length > 0 && entry.modVersion.length > 0, `${entry.id} needs a mod and version`);
+    }
+  });
+  test('the measured version matches', () => {
+    assert.equal(lookupKnowledge(label, null, 1, new Map([['lootr', '0.7.35.86']])).length, 1);
+  });
+  test('a newer or older version does not: it may have been fixed', () => {
+    assert.deepEqual(lookupKnowledge(label, null, 1, new Map([['lootr', '0.7.35.87']])), []);
+    assert.deepEqual(lookupKnowledge(label, null, 1, new Map([['lootr', '0.7.34.0']])), []);
+  });
+  test('a mod that is not installed does not', () => {
+    assert.deepEqual(lookupKnowledge(label, null, 1, new Map()), []);
   });
 });
 
@@ -89,13 +110,13 @@ describe('comparison against the last measurement', () => {
   const label = 'noobanidus.mods.lootr.ticker.TileTicker.onServerTick';
   // The entry records 0.5 ms/tick.
   test('a much smaller cost reads as lower', () => {
-    assert.equal(lookupKnowledge(label, null, 0.002)[0]!.comparison, 'lower');
+    assert.equal(lookupKnowledge(label, null, 0.002, MEASURED)[0]!.comparison, 'lower');
   });
   test('a comparable cost reads as similar', () => {
-    assert.equal(lookupKnowledge(label, null, 0.5)[0]!.comparison, 'similar');
+    assert.equal(lookupKnowledge(label, null, 0.5, MEASURED)[0]!.comparison, 'similar');
   });
   test('a much larger cost reads as higher', () => {
-    assert.equal(lookupKnowledge(label, null, 6)[0]!.comparison, 'higher');
+    assert.equal(lookupKnowledge(label, null, 6, MEASURED)[0]!.comparison, 'higher');
   });
 });
 
@@ -267,7 +288,7 @@ describe('comparisons are qualified, not presented as measurements', () => {
   });
 
   test('a comparison always comes with a caveat', () => {
-    const hit = lookupKnowledge('noobanidus.mods.lootr.ticker.TileTicker.onServerTick', null, 6)[0]!;
+    const hit = lookupKnowledge('noobanidus.mods.lootr.ticker.TileTicker.onServerTick', null, 6, MEASURED)[0]!;
     assert.equal(hit.comparison, 'higher');
     assert.match(hit.caveat!, /not an earlier point on this series/);
     assert.match(hit.caveat!, /A\/B validator/);
@@ -276,7 +297,7 @@ describe('comparisons are qualified, not presented as measurements', () => {
   test('no comparison means no caveat to make', () => {
     const noFigure = KNOWLEDGE.find((k) => k.lastMsPerTick === undefined);
     assert.ok(noFigure, 'expected at least one entry without a recorded figure');
-    const hit = lookupKnowledge('java.lang.Throwable.fillInStackTrace', null, 1).find(
+    const hit = lookupKnowledge('java.lang.Throwable.fillInStackTrace', null, 1, MEASURED).find(
       (h) => h.entry.lastMsPerTick === undefined,
     );
     assert.equal(hit?.comparison, 'unknown');

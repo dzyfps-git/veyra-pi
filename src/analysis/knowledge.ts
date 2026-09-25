@@ -46,8 +46,14 @@ export interface KnowledgeEntry {
   id: string;
   /** Matched against the frame label, case-insensitively. */
   match: RegExp;
-  /** Only consider the entry when this mod is the attributed source. */
-  mod?: string;
+  /** The mod id it belongs to. When a frame is attributed, it must be this mod. */
+  mod: string;
+  /**
+   * The exact version it was measured on. The entry applies only while that
+   * version is installed: any other version, older or newer, may already have
+   * fixed it, and nobody has measured that.
+   */
+  modVersion: string;
   title: string;
   outcome: KnowledgeOutcome;
   /** What was found last time, in plain terms. */
@@ -80,31 +86,16 @@ export interface KnowledgeEntry {
 /**
  * Curated entries.
  *
- * Every one of these was measured on a real modded Fabric 1.20.1 server, with
- * the conditions it was measured under. They describe public mods, so they
- * apply to anyone running them; figures are that one server's, not a promise.
+ * Every one of these was measured on a real modded Fabric 1.20.1 server, on
+ * one exact version of one public mod, with the conditions it was measured
+ * under. Figures are that one server's, not a promise.
  */
 export const KNOWLEDGE: readonly KnowledgeEntry[] = [
   {
-    id: 'inventory-criterion',
-    match: /InventoryChangedCriterion|AbstractCriterion\.trigger/i,
-    title: 'Inventory advancement criterion triggering redundantly',
-    outcome: 'open',
-    finding:
-      'The largest repeatable steady waste found: 2.03 ms/tick in one capture, 5.30 ms/tick mean across the ' +
-      'preceding four, peaking at 6.96 in a single minute.',
-    resolution:
-      'Not yet resolved. The intended approach is to deduplicate redundant triggers without suppressing ' +
-      'legitimate advancement checks.',
-    lastMsPerTick: 2.03,
-    measuredUnder: 'a 15-minute capture at 8-9 players',
-    when: '2026-08-29',
-    confirmBy: 'Determine which criterion fires and whether the same inventory state triggers it more than once per tick.',
-    suggests: 'likely',
-  },
-  {
     id: 'bclib-maxnearby',
     match: /SpawnRuleBuilder.*maxNearby|maxNearby/i,
+    mod: 'bclib',
+    modVersion: '3.0.14',
     title: 'BCLib maxNearby scans all matches instead of stopping early',
     outcome: 'open',
     finding:
@@ -120,6 +111,7 @@ export const KNOWLEDGE: readonly KnowledgeEntry[] = [
   {
     id: 'lootr-tileticker',
     match: /lootr[.$].*(TileTicker|ConfigManager)|TileTicker/i,
+    modVersion: '0.7.35.86',
     mod: 'lootr',
     title: 'Lootr rebuilds its tile set every tick',
     outcome: 'open',
@@ -132,21 +124,10 @@ export const KNOWLEDGE: readonly KnowledgeEntry[] = [
     suggests: 'likely',
   },
   {
-    id: 'questprogress-nbt',
-    match: /QuestProgress\.(open|copy)|NbtCompound\.copy/i,
-    title: 'Quest progress reopened from NBT every tick',
-    outcome: 'open',
-    finding: '0.39 ms/tick total, 0.59 across preceding call sites.',
-    resolution: 'Keep live quest state in memory and persist on dirty/save/logout rather than reopening NBT.',
-    lastMsPerTick: 0.39,
-    measuredUnder: 'a 20-minute capture at 6-8 players',
-    when: '2026-08-31',
-    confirmBy: 'Confirm the NBT copy is per-tick rather than per-change.',
-    suggests: 'likely',
-  },
-  {
     id: 'blockswap-retrogen',
     match: /blockswap|isIncompatibleBlock|runRetroGenerator/i,
+    mod: 'blockswap',
+    modVersion: '5.0.0.0',
     title: 'BlockSwap retro-generation running after it is needed',
     outcome: 'open',
     finding: '0.70 ms/tick, 0.92 four-capture mean, 2.04 worst minute. Highly workload-dependent.',
@@ -160,6 +141,8 @@ export const KNOWLEDGE: readonly KnowledgeEntry[] = [
   {
     id: 'opac-spawn-permission',
     match: /openpartiesandclaims|onIsNaturalSpawningAllowed/i,
+    mod: 'openpartiesandclaims',
+    modVersion: '0.25.10',
     title: 'OPAC natural-spawn permission check on every spawn candidate',
     outcome: 'open',
     finding:
@@ -179,6 +162,8 @@ export const KNOWLEDGE: readonly KnowledgeEntry[] = [
   {
     id: 'bumblezone-spawn-event',
     match: /the_bumblezone|bumblezone/i,
+    mod: 'the_bumblezone',
+    modVersion: '7.9.10+1.20.1-fabric',
     title: 'Bumblezone natural-spawn event wrapper',
     outcome: 'open',
     finding:
@@ -194,42 +179,13 @@ export const KNOWLEDGE: readonly KnowledgeEntry[] = [
     suggests: 'likely',
   },
   {
-    id: 'spawn-density-capper',
-    match: /SpawnDensityCapper|increaseDensity/i,
-    title: 'Spawn density capper',
+    id: 'archon-mana-sync',
+    match: /archon.*(setMana|sync)/i,
+    mod: 'archon',
+    modVersion: '1.1.5',
+    title: 'Archon syncs mana even when it did not change',
     outcome: 'open',
-    finding: '2.46 ms/tick under an 11-player load, 2.72 worst minute. Stable rather than spiky.',
-    resolution:
-      'Not resolved, and higher-risk than its cost suggests: this is core spawn-cap correctness, so a wrong ' +
-      'patch changes mob behaviour rather than just performance.',
-    lastMsPerTick: 2.46,
-    measuredUnder: 'under an 11-player load; this cost scales with player count',
-    when: '2026-08-29',
-    confirmBy: 'Confirm the current player load before comparing; this one scales with it.',
-    suggests: 'likely',
-  },
-  {
-    id: 'tickspawners',
-    match: /tickSpawners|ServerWorld\.tickSpawners/i,
-    title: 'ServerWorld.tickSpawners — owner unknown',
-    outcome: 'open',
-    finding: '1.11 ms/tick, 1.77 worst minute.',
-    resolution:
-      'Deliberately NOT patched: spark cannot say which special spawner owns the cost, so the next step is to ' +
-      'instrument each spawner before touching anything. A good example of sampling measuring time but not ' +
-      'attribution.',
-    lastMsPerTick: 1.11,
-    measuredUnder: 'a capture at 11 players',
-    when: '2026-08-29',
-    confirmBy: 'Instrumentation, not profiling. A counter per spawner is what settles this.',
-    suggests: 'unknown',
-  },
-  {
-    id: 'setter-sync-unchanged',
-    match: /(Archon|soulsweaponry|SoulsWeapons).*(setMana|setPosture|sync)/i,
-    title: 'Sync packet sent for an unchanged value',
-    outcome: 'open',
-    finding: 'Archon mana 0.18-0.25 ms/tick, SoulsWeapons posture about 0.15 with a 0.97 sampled burst.',
+    finding: 'ManaComponent.setMana sends a sync packet on every call: 0.18-0.25 ms/tick.',
     resolution: 'Skip the setter and its packet when the clamped value did not change.',
     lastMsPerTick: 0.25,
     measuredUnder: 'across captures at 6-9 players',
@@ -238,8 +194,25 @@ export const KNOWLEDGE: readonly KnowledgeEntry[] = [
     suggests: 'likely',
   },
   {
+    id: 'soulsweapons-posture-sync',
+    match: /soulsweaponry.*(setPosture|sync)/i,
+    mod: 'soulsweapons',
+    modVersion: '1.3.1-1.20.1-fabric',
+    title: 'Soulslike Weaponry syncs posture even when it did not change',
+    outcome: 'open',
+    finding: 'Posture data is synced on every update: about 0.15 ms/tick, with a 0.97 sampled burst.',
+    resolution: 'Skip the setter and its packet when the value did not change.',
+    lastMsPerTick: 0.15,
+    measuredUnder: 'across captures at 6-9 players',
+    when: '2026-08-29 to 2026-08-31',
+    confirmBy: 'Check whether the setter compares against the current value before syncing.',
+    suggests: 'likely',
+  },
+  {
     id: 'exception-in-tick-path',
     match: /fillInStackTrace|Throwable\.<init>|playerabilitylib/i,
+    mod: 'things',
+    modVersion: '0.3.3+1.20',
     title: 'Exception construction in a tick path',
     outcome: 'open',
     finding:
@@ -254,6 +227,8 @@ export const KNOWLEDGE: readonly KnowledgeEntry[] = [
   {
     id: 'simply-swords-unloaded-chunk',
     match: /simplyswords|stepping.*block/i,
+    mod: 'simplyswords',
+    modVersion: '1.56.0-1.20.1',
     title: 'Stepping-block query against a possibly-unloaded chunk',
     outcome: 'open',
     finding: 'Negligible steady average, but about 1.69 seconds of blocked tick time in one capture.',
@@ -283,20 +258,24 @@ export interface KnowledgeMatch {
 /**
  * Look up prior work for one frame.
  *
- * The mod filter is applied only when an entry declares one AND the frame is
- * attributed. An unattributed frame still matches on the label, because
- * attribution is frequently missing and refusing to match on that basis
- * would make the knowledge base useless exactly when it is most needed.
+ * An entry applies only while the exact mod version it was measured on is
+ * installed (`installed`: mod id -> version). The mod filter is applied only
+ * when the frame is attributed. An unattributed frame still matches on the
+ * label, because attribution is frequently missing and refusing to match on
+ * that basis would make the knowledge base useless exactly when it is most
+ * needed.
  */
 export function lookupKnowledge(
   label: string,
   sourceMod: string | null,
   msPerTick: number,
+  installed: ReadonlyMap<string, string>,
 ): KnowledgeMatch[] {
   const out: KnowledgeMatch[] = [];
   for (const entry of KNOWLEDGE) {
+    if (installed.get(entry.mod) !== entry.modVersion) continue;
     if (!entry.match.test(label)) continue;
-    if (entry.mod !== undefined && sourceMod !== null && sourceMod !== '' && !sourceMod.includes(entry.mod)) {
+    if (sourceMod !== null && sourceMod !== '' && !sourceMod.includes(entry.mod)) {
       continue;
     }
 
@@ -313,6 +292,18 @@ export function lookupKnowledge(
     out.push(caveat === undefined ? { entry, comparison } : { entry, comparison, caveat });
   }
   return out;
+}
+
+/** Mod id -> version in the season's latest capture: what is installed now, for `lookupKnowledge`. */
+export function installedMods(db: DatabaseSync, seasonId: number): Map<string, string> {
+  const rows = db
+    .prepare(
+      `SELECT m.mod_id AS id, cm.version AS version
+         FROM capture_mod cm JOIN mod m ON m.id = cm.mod
+        WHERE cm.capture_id = (SELECT max(id) FROM capture WHERE season_id = ?)`,
+    )
+    .all(seasonId) as Array<{ id: string; version: string }>;
+  return new Map(rows.map((r) => [r.id, r.version]));
 }
 
 export interface RegisterMatch {

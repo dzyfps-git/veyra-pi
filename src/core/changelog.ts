@@ -18,6 +18,11 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.1.24',
+    date: '2026-09-25',
+    notes: ['Known issues show only on the exact mod version they were measured on, since other versions may have fixed them.'],
+  },
+  {
     version: '0.1.23',
     date: '2026-09-25',
     notes: ['Built-in known issues now cover public mods only. Your settings are unchanged.'],
