@@ -18,6 +18,14 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.1.27',
+    date: '2026-09-25',
+    notes: [
+      'Hovering the tick chart uses a fraction of the CPU it did.',
+      'Findings and Overview load up to 10x faster when nothing new was recorded, and opening a finding no longer recomputes the list.',
+    ],
+  },
+  {
     version: '0.1.26',
     date: '2026-09-25',
     notes: ['Optional envx link (Settings, Collection): Findings show which mod jar likely owns a hot method and which mixins target it.'],

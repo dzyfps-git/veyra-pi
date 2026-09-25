@@ -367,6 +367,15 @@ export interface Stall {
   wait?: Wait;
 }
 
+/**
+ * The main wait of one past minute, by detail file and window. A minute's
+ * detail never changes, so this is worked out once: the Overview explains
+ * its stalls on every load, and each explanation decodes a whole detail file
+ * (about 70 ms of CPU) without this. null = looked, nothing explains it.
+ */
+const waitCache = new Map<string, Wait | null>();
+const WAIT_CACHE_SIZE = 512;
+
 /** Minutes whose worst tick was at least `minMs`, worst first, with the main wait explained where known. */
 export function stalls(
   db: DatabaseSync,
@@ -384,6 +393,12 @@ export function stalls(
     if (i >= (options.explain ?? 12)) return stall;
     const file = resolvePath(window.sidecarPath);
     if (file === undefined) return stall;
+    const key = `${file}|${window.windowId}`;
+    const known = waitCache.get(key);
+    if (known !== undefined) {
+      if (known !== null) stall.wait = known;
+      return stall;
+    }
     try {
       const sidecar = sidecarOf(file);
       const index = sidecar.windows.indexOf(window.windowId);
@@ -400,8 +415,10 @@ export function stalls(
       }
       // A wait explains a stall only when it is a real share of it.
       if (best !== undefined && best.ms >= Math.min(300, stall.worstTick * 0.4)) stall.wait = best;
+      waitCache.set(key, stall.wait ?? null);
+      if (waitCache.size > WAIT_CACHE_SIZE) waitCache.delete(waitCache.keys().next().value!);
     } catch {
-      // Unexplained is shown as unexplained.
+      // Unexplained is shown as unexplained (and looked at again next time).
     }
     return stall;
   });

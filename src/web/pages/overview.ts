@@ -205,64 +205,89 @@ export function tickChart(
   <text x="${padL - 8}" y="12" text-anchor="end" class="axis">MSPT</text>
   <text x="${W - 4}" y="12" text-anchor="end" class="axis players-axis">players</text>
   ${peakMark}
-  <rect class="sel" x="0" y="${padT}" width="0" height="${(base - padT).toFixed(1)}" visibility="hidden"/>
-  <line class="cursor" x1="0" x2="0" y1="${padT}" y2="${base}" visibility="hidden"/>
-  <circle class="dot" r="4" cx="0" cy="0" visibility="hidden"/>
 </svg>
+<div class="chart-over" aria-hidden="true"><div class="c-sel"></div><div class="c-cursor"></div><div class="c-dot"></div></div>
 <div class="chart-tip" hidden></div>
 <script>
+// Hovering must cost next to nothing: this PC also runs the server. So the
+// cursor, dot, selection and tip are separate layers moved with transforms
+// (the chart itself is never redrawn), work happens at most once per frame,
+// nothing changes while the same minute stays under the mouse, and the
+// nearest minute is found by binary search.
 (() => {
   const root = document.getElementById(${JSON.stringify(id)});
-  const svg = root.querySelector('svg'), tip = root.querySelector('.chart-tip'), cursor = root.querySelector('.cursor'), dot = root.querySelector('.dot');
+  const svg = root.querySelector('svg'), tip = root.querySelector('.chart-tip');
+  const cur = root.querySelector('.c-cursor'), dot = root.querySelector('.c-dot'), sel = root.querySelector('.c-sel');
   const pts = ${data};
   const from = ${opts.fromMs}, to = ${opts.toMs}, W = ${W}, H = ${H}, L = ${padL}, R = ${padR}, T = ${padT}, B = ${padB}, max = ${max};
   const xOf = (t) => L + ((t - from) / Math.max(1, to - from)) * (W - L - R);
   const yOf = (v) => T + (1 - v / max) * (H - T - B);
-  let current = null;
+  const xs = pts.map((p) => xOf(p[0]));
   const zoomHref = ${JSON.stringify(opts.zoomHref ?? '')};
-  const sel = root.querySelector('.sel');
-  const vxOf = (evt) => { const box = svg.getBoundingClientRect(); return ((evt.clientX - box.left) / box.width) * W; };
+  const fmtTime = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' });
+  const fmtDay = new Intl.DateTimeFormat([], { month: 'short', day: 'numeric' });
+  let box = null, scale = 1;
+  const measure = () => { box = svg.getBoundingClientRect(); scale = box.width / W; };
+  const forget = () => { box = null; };
+  window.addEventListener('resize', forget, { passive: true });
+  window.addEventListener('scroll', forget, { passive: true, capture: true });
+  const vxOf = (evt) => { if (box === null) measure(); return ((evt.clientX - box.left) / box.width) * W; };
   // The highest minute within a few pixels, so a spike is easy to land on.
-  const near = (evt) => {
-    const vx = vxOf(evt);
-    let best = null;
-    for (const p of pts) { if (Math.abs(xOf(p[0]) - vx) <= 7 && (best === null || p[1] > best[1])) best = p; }
+  const near = (vx) => {
+    let lo = 0, hi = xs.length;
+    while (lo < hi) { const m = (lo + hi) >> 1; if (xs[m] < vx - 7) lo = m + 1; else hi = m; }
+    let best = -1;
+    for (let i = lo; i < xs.length && xs[i] <= vx + 7; i += 1) if (best < 0 || pts[i][1] > pts[best][1]) best = i;
     return best;
   };
-  let drag = null;
-  const hide = () => { tip.hidden = true; cursor.setAttribute('visibility', 'hidden'); dot.setAttribute('visibility', 'hidden'); svg.style.cursor = ''; current = null; };
-  svg.addEventListener('mousedown', (evt) => { if (zoomHref !== '' && evt.button === 0 && !evt.target.closest('a')) { drag = vxOf(evt); evt.preventDefault(); } });
-  window.addEventListener('mouseup', (evt) => {
-    if (drag === null) return;
-    const a = Math.max(L, Math.min(drag, vxOf(evt))), b = Math.min(W - R, Math.max(drag, vxOf(evt)));
-    drag = null; sel.setAttribute('visibility', 'hidden');
-    const tOf = (vx) => from + ((vx - L) / (W - L - R)) * (to - from);
-    if (b - a > 8) { location.href = zoomHref + '&zf=' + Math.round(tOf(a)) + '&zt=' + Math.round(tOf(b)); return; }
-    if (current) location.href = '/minute?at=' + (current[0] + 1);
-  });
-  svg.addEventListener('mousemove', (evt) => {
+  let current = null, shown = -1, drag = null, frame = 0, last = null;
+  const hide = () => {
+    shown = -1; current = null;
+    tip.hidden = true; cur.style.display = 'none'; dot.style.display = 'none'; svg.style.cursor = '';
+  };
+  const update = () => {
+    frame = 0;
+    const evt = last;
+    if (evt === null) return;
+    const vx = vxOf(evt);
     if (drag !== null) {
-      const a = Math.min(drag, vxOf(evt)), b = Math.max(drag, vxOf(evt));
-      sel.setAttribute('x', Math.max(L, a)); sel.setAttribute('width', Math.max(0, Math.min(W - R, b) - Math.max(L, a))); sel.setAttribute('visibility', 'visible');
+      const a = Math.max(L, Math.min(drag, vx)), b = Math.min(W - R, Math.max(drag, vx));
+      sel.style.transform = 'translate(' + (a * scale) + 'px,' + (T * scale) + 'px) scale(' + Math.max(0, b - a) * scale + ',' + (H - T - B) * scale + ')';
+      sel.style.display = 'block';
     }
-    const p = near(evt);
+    const i = near(vx);
+    if (i === shown) return;
+    if (i < 0) return hide();
+    shown = i;
+    const p = pts[i];
     current = p;
-    if (!p) return hide();
     const d = new Date(p[0]);
-    const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ', ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
-    tip.innerHTML = '<b>' + time + '</b><br><b class="big">' + p[1].toFixed(1) + ' MSPT</b> typical tick' +
+    tip.innerHTML = '<b>' + fmtTime.format(d) + ', ' + fmtDay.format(d) + '</b><br><b class="big">' + p[1].toFixed(1) + ' MSPT</b> typical tick' +
       '<br>' + p[4].toFixed(1) + ' MSPT around then (10-min average)' +
       (p[2] === null ? '' : '<br>worst tick ' + (p[2] >= 1000 ? (p[2] / 1000).toFixed(1) + ' s' : p[2] + ' ms')) +
       (p[3] === null ? '' : p[3] === 0 ? '<br><b>nobody online</b> (idle)' : '<br>' + p[3] + ' player' + (p[3] === 1 ? '' : 's')) + '<br><span>Click to see what happened' + (zoomHref === '' ? '' : ', or drag to zoom in') + '</span>';
     tip.hidden = false;
-    const box = svg.getBoundingClientRect();
-    const px = (xOf(p[0]) / W) * box.width;
-    tip.style.left = (px + 230 > box.width ? px - 226 : px + 14) + 'px';
-    cursor.setAttribute('x1', xOf(p[0])); cursor.setAttribute('x2', xOf(p[0])); cursor.setAttribute('visibility', 'visible');
-    dot.setAttribute('cx', xOf(p[0])); dot.setAttribute('cy', yOf(p[1])); dot.setAttribute('visibility', 'visible');
+    const px = xs[i] * scale;
+    tip.style.transform = 'translateX(' + (px + 230 > box.width ? px - 226 : px + 14) + 'px)';
+    cur.style.height = ((H - T - B) * scale) + 'px';
+    cur.style.transform = 'translate(' + px + 'px,' + (T * scale) + 'px)';
+    dot.style.transform = 'translate(' + (px - 5) + 'px,' + (yOf(p[1]) * scale - 5) + 'px)';
+    cur.style.display = 'block'; dot.style.display = 'block';
     svg.style.cursor = 'pointer';
+  };
+  svg.addEventListener('mouseenter', measure);
+  svg.addEventListener('mousedown', (evt) => { if (zoomHref !== '' && evt.button === 0 && !evt.target.closest('a')) { drag = vxOf(evt); evt.preventDefault(); } });
+  window.addEventListener('mouseup', (evt) => {
+    if (drag === null) return;
+    const vx = vxOf(evt);
+    const a = Math.max(L, Math.min(drag, vx)), b = Math.min(W - R, Math.max(drag, vx));
+    drag = null; sel.style.display = 'none';
+    const tOf = (v) => from + ((v - L) / (W - L - R)) * (to - from);
+    if (b - a > 8) { location.href = zoomHref + '&zf=' + Math.round(tOf(a)) + '&zt=' + Math.round(tOf(b)); return; }
+    if (current) location.href = '/minute?at=' + (current[0] + 1);
   });
-  svg.addEventListener('mouseleave', hide);
+  svg.addEventListener('mousemove', (evt) => { last = evt; if (frame === 0) frame = requestAnimationFrame(update); }, { passive: true });
+  svg.addEventListener('mouseleave', () => { last = null; if (frame !== 0) { cancelAnimationFrame(frame); frame = 0; } hide(); });
   if (zoomHref === '') svg.addEventListener('click', () => { if (current) location.href = '/minute?at=' + (current[0] + 1); });
 })();
 </script>
@@ -289,15 +314,17 @@ const CHART_STYLE = `<style>
 .chart .thr-label.warn { fill: var(--warn); }
 .chart .thr-label.bad { fill: var(--bad); }
 .chart .freeze { fill: var(--bad); }
-.chart .cursor { stroke: var(--text-dim); stroke-width: 1; }
-.chart .dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; pointer-events: none; }
-.chart .cursor { pointer-events: none; }
-.chart .sel { fill: var(--accent); opacity: .12; pointer-events: none; }
+/* Hover layers: moved with transforms on their own layers, so the chart is never redrawn. */
+.chart-over { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.chart-over > div { position: absolute; left: 0; top: 0; display: none; will-change: transform; }
+.c-cursor { width: 1px; background: var(--text-dim); }
+.c-dot { width: 10px; height: 10px; box-sizing: border-box; border-radius: 50%; background: var(--accent); border: 2px solid var(--surface); }
+.c-sel { width: 1px; height: 1px; background: var(--accent); opacity: .12; transform-origin: 0 0; }
 .chart .peak circle { fill: var(--surface); stroke: var(--accent); stroke-width: 2; }
 .chart .peak text { fill: var(--text); font: 600 11.5px var(--sans); paint-order: stroke; stroke: var(--surface); stroke-width: 4px; }
 .chart .peak:hover circle { fill: var(--accent); }
 .chart { user-select: none; }
-.chart-tip { position: absolute; top: 8px; width: 212px; padding: 10px 13px; border-radius: 14px; background: var(--surface-2);
+.chart-tip { position: absolute; top: 8px; left: 0; will-change: transform; width: 212px; padding: 10px 13px; border-radius: 14px; background: var(--surface-2);
   border: 1px solid var(--border-soft); font-size: 12.5px; line-height: 1.55; pointer-events: none; box-shadow: 0 24px 60px -24px rgba(0,0,0,.9); }
 .chart-tip .big { font-family: var(--mono); font-size: 14px; }
 .chart-tip span { color: var(--text-faint); font-size: 11.5px; }
@@ -427,7 +454,7 @@ export function overviewPage(
     attention.push(`<a href="/server">${icon('guide', 16)}<span>${questions} question${questions === 1 ? '' : 's'} about this server's history need${questions === 1 ? 's' : ''} your answer</span></a>`);
   }
   try {
-    const setup = settings.getBoolean('setup.checkOnRotation') ? gatherSetup({ db }, settings, server.root, server.id) : undefined;
+    const setup = settings.getBoolean('setup.checkOnRotation') ? gatherSetup({ db }, settings, server.root, server.id, { maxScanAgeMs: 5 * 60_000 }) : undefined;
     const problems = setup?.findings.filter((f) => f.severity !== 'info') ?? [];
     for (const f of problems.slice(0, 3)) {
       attention.push(`<a href="/server#setup">${icon('alert', 16)}<span>${esc(f.title)}</span><span class="tag ${f.severity === 'blocking' ? 'bad' : 'warn'}" style="margin-left:auto">${f.severity === 'blocking' ? 'not working' : 'improvement'}</span></a>`);

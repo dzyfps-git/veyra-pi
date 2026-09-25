@@ -153,14 +153,27 @@ export function latestEnvironment(store: Pick<Store, 'db'>, serverId?: string): 
   };
 }
 
+/**
+ * Recent scans of a server folder. Scanning reads the server's config and
+ * mods folders over the network share; a page that only summarises the
+ * setup (the Overview, on every load) reuses one for `maxScanAgeMs`.
+ */
+const scans = new Map<string, { at: number; observed: ReturnType<typeof scanServer> }>();
+
 export function gatherSetup(
   store: Pick<Store, 'db'>,
   settings: SettingsStore,
   root: string,
   serverId?: string,
+  options: { maxScanAgeMs?: number } = {},
 ): SetupState | undefined {
   if (root.trim() === '') return undefined;
-  const observed = scanServer(root);
+  const recent = scans.get(root);
+  const observed =
+    options.maxScanAgeMs !== undefined && recent !== undefined && Date.now() - recent.at < options.maxScanAgeMs
+      ? recent.observed
+      : scanServer(root);
+  if (observed !== recent?.observed) scans.set(root, { at: Date.now(), observed });
   const environment = latestEnvironment(store, serverId);
   const desired = desiredSetup(settings);
   const findings = checkSetup(observed, desired, environment);

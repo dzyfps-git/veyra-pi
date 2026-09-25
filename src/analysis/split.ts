@@ -23,6 +23,7 @@
 
 import { activityOf, activitySql, type ActivityFilter } from './activity.ts';
 import { hasActivityRollups, storedActivitySql } from '../store/rollups.ts';
+import { memo } from '../store/memo.ts';
 import type { DatabaseSync } from 'node:sqlite';
 import { zstdCompressSync, zstdDecompressSync } from 'node:zlib';
 
@@ -404,8 +405,12 @@ function addCell(acc: Acc, cell: SplitCell, ms: number): void {
   else hit.ms += ms;
 }
 
-/** A span's split: whole days from the roll-up, exact times minute by minute. */
+/** A span's split: whole days from the roll-up, exact times minute by minute. Reused until the database changes. */
 export function splitFor(db: DatabaseSync, seasonId: number, span: SplitSpan = {}): SplitResult {
+  return memo(db, `split:${seasonId}:${JSON.stringify(span)}`, () => computeSplitFor(db, seasonId, span));
+}
+
+function computeSplitFor(db: DatabaseSync, seasonId: number, span: SplitSpan): SplitResult {
   const acc: Acc = { ticks: 0, minutes: 0, captures: 0, pending: 0, sampledMs: 0, measuredMs: 0, measuredTicks: 0, aligned: 0, cells: new Map() };
 
   if (span.time === undefined) {

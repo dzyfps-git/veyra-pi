@@ -45,6 +45,7 @@ import {
   type Matchable,
 } from '../../analysis/investigations.ts';
 import * as q from '../../query/queries.ts';
+import { memo } from '../../store/memo.ts';
 import { renderThingBrief, type HandoffOptions } from '../../report/handoff.ts';
 import { callPathsTable } from './views.ts';
 import { observableFor, type ObservableView } from '../../ingest/observable.ts';
@@ -568,14 +569,21 @@ export function findingsPage(
     table = prepared.table;
     coverage = prepared.coverage;
   }
-  const all = findings(db, {
+  // Opening one finding asks for this same list again: reused until the
+  // database changes (an hour range reads its own temporary table, so not that).
+  const listQuery = {
     ...ownMod,
     limit: 500,
     ...(seasonId === undefined ? {} : { seasonId }),
     ...(resolved.range === undefined ? {} : { range: resolved.range }),
     ...(table === undefined ? {} : { table }),
     activity: players,
-  });
+  };
+  const findingsOf = (query: typeof listQuery): Finding[] =>
+    query.table !== undefined
+      ? findings(db, query)
+      : memo(db, `findings:${JSON.stringify({ ...query, ownMod: undefined })}`, () => findings(db, query));
+  const all = findingsOf(listQuery);
 
   // Where the tick goes, over the same span as the list: every sample of
   // tick work, minute by minute (analysis/split.ts).
@@ -623,7 +631,7 @@ export function findingsPage(
   // Investigations, judged on the whole season so a short range cannot make
   // something look as if it came back or went away.
   const invs = serverId === undefined ? [] : listInvestigations(db, serverId);
-  const seasonList: Matchable[] = (resolved.range === undefined && table === undefined && players === 'all' ? all : findings(db, { ...ownMod, limit: 500, activity: 'all', ...(seasonId === undefined ? {} : { seasonId }) })).map(
+  const seasonList: Matchable[] = (resolved.range === undefined && table === undefined && players === 'all' ? all : findingsOf({ ...ownMod, limit: 500, activity: 'all', ...(seasonId === undefined ? {} : { seasonId }) })).map(
     (f) => ({ label: f.label, owner: ownerOf(f), msPerTick: f.msPerTick }),
   );
   const invNow = new Map(invs.map((i) => [i.id, costOf(i, seasonList)]));
