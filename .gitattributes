@@ -1,0 +1,5 @@
+# Language statistics: the app is TypeScript; generated and vendored files do not count.
+vendor/** linguist-vendored
+dist/** linguist-generated
+*.ico binary
+*.woff2 binary

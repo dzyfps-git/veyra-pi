@@ -1,0 +1,38 @@
+# =============================================================================
+#  FROZEN INTERNAL IDENTIFIERS  --  DO NOT EDIT.
+# =============================================================================
+#
+#  This file exists so the rename-safety guarantee is auditable rather than
+#  just promised. Every value here is an internal identifier. They are
+#  deliberately brand-neutral and must never change, because things outside
+#  this application depend on them.
+#
+#  If you want to rename the app, edit `branding.toml`. Not this.
+#
+#  A test (tests/branding.test.ts) asserts that:
+#    1. the public brand name appears nowhere in src/ except via the loader, and
+#    2. every value below still matches what the code uses.
+# =============================================================================
+
+# Application identifier. Appears in paths, the database filename, the
+# HTTP user-agent and log lines. Changing it orphans existing data.
+appId = "perfint"
+
+# Environment variable prefix, e.g. PERFINT_CONFIG.
+envPrefix = "PERFINT_"
+
+# Windows service / scheduled task name.
+serviceName = "perfint-collector"
+
+# SQLite database filename, relative to the data directory.
+databaseFile = "perfint.sqlite"
+
+# Schema version for the state database. Bumped only by migrations.
+schemaVersion = 1
+
+# Prefix for optional Prometheus-style metrics, if that endpoint is enabled.
+metricPrefix = "perfint_"
+
+# User-agent sent on outbound HTTP (Discord webhook, self-hosted bytebin).
+# The URL is a stable project reference, not a brand name.
+userAgent = "perfint/0.1 (+minecraft-performance-intelligence)"

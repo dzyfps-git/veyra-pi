@@ -1,0 +1,43 @@
+{
+  "appId": "me.perfint.desktop",
+  "productName": "Veyra Performance Intelligence",
+  "copyright": "",
+  "directories": {
+    "output": "dist",
+    "buildResources": "desktop"
+  },
+  "asar": false,
+  "files": [
+    "desktop/app/**/*",
+    "desktop/app.ico",
+    "src/**/*",
+    "config/**/*",
+    "package.json",
+    "!**/*.map",
+    "!data/**/*"
+  ],
+  "extraMetadata": {
+    "main": "desktop/app/main.js"
+  },
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      }
+    ],
+    "icon": "desktop/app.ico",
+    "artifactName": "${productName} Setup ${version}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Veyra Performance Intelligence"
+  },
+  "publish": null
+}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A1E24"/><stop offset="1" stop-color="#0B0B0D"/>
+    </linearGradient>
+    <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6C8CFF" stop-opacity=".24"/><stop offset="1" stop-color="#6C8CFF" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="120" cy="66" r="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6C8CFF" stop-opacity=".35"/><stop offset="1" stop-color="#6C8CFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#tile)"/>
+  <rect x="8.75" y="8.75" width="238.5" height="238.5" rx="55.25" fill="none" stroke="#FFFFFF" stroke-opacity=".10" stroke-width="1.5"/>
+  <line x1="36" x2="220" y1="104" y2="104" stroke="#F2A633" stroke-opacity=".55" stroke-width="3" stroke-dasharray="7 8" stroke-linecap="round"/>
+  <path d="M36 154 C52 154 58 148 70 150 C82 152 88 146 98 144 L120 66 L140 150 C150 156 160 144 172 146 C188 148 200 140 220 142 L220 226 L36 226 Z" fill="url(#fill)"/>
+  <circle cx="120" cy="66" r="60" fill="url(#glow)"/>
+  <path d="M36 154 C52 154 58 148 70 150 C82 152 88 146 98 144 L120 66 L140 150 C150 156 160 144 172 146 C188 148 200 140 220 142" fill="none" stroke="#6C8CFF" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="120" cy="60" r="11" fill="#F5F7FA"/>
+</svg>

@@ -1,0 +1,7 @@
+{
+  "name": "perfint-desktop",
+  "version": "0.1.7",
+  "private": true,
+  "description": "Desktop shell. Contains no application logic: it starts the collector if needed and renders the local interface.",
+  "main": "main.js"
+}

@@ -1,0 +1,28 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local configuration may contain credentials (Discord webhook URL, SSH details).
+config/perfint.toml
+config/*.local.toml
+
+# Runtime data. Never commit the archive or the databases.
+data/
+archive/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sparkprofile
+*.sparkprofile.zst
+*.parquet
+
+# Logs
+logs/
+*.log
+
+# Generated reports. Regenerate with `node src/cli/report.ts`.
+reports/
+
+
+# Paths to a real capture archive, for the replay tests (tests/fixtures/real-archive.ts).
+tests/fixtures/*.local.json

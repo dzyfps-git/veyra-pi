@@ -1,0 +1,31 @@
+{
+  "name": "perfint",
+  "version": "0.1.23",
+  "private": true,
+  "license": "MIT",
+  "repository": "github:dzyfps-git/veyra-pi",
+  "description": "Continuous Minecraft server performance intelligence: archives spark's background profiler output permanently and builds a long-horizon optimization ledger.",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "typecheck": "node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit",
+    "test": "node --test",
+    "decode": "node src/cli/decode.ts",
+    "verify-decoder": "node src/cli/verify-decoder.ts",
+    "app": "node ./node_modules/electron/cli.js desktop/app",
+    "collector": "node src/cli/collector.ts",
+    "dist": "node ./node_modules/electron-builder/cli.js --win --config electron-builder.json && node scripts/update-manifest.ts",
+    "dist:dir": "node ./node_modules/electron-builder/cli.js --win --dir --config electron-builder.json"
+  },
+  "dependencies": {
+    "smol-toml": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.15.3",
+    "typescript": "^5.9.3"
+  }
+}

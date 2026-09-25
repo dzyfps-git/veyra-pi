@@ -1,0 +1,168 @@
+# =============================================================================
+#  perfint -- main configuration
+# =============================================================================
+#  Copy to `perfint.toml` and edit. `perfint.toml` is gitignored because it can
+#  contain credentials (Discord webhook URL).
+#
+#  Safety posture of the shipped defaults:
+#    - harvest disabled      (no command is ever sent to a live server)
+#    - deletion disabled     (nothing is ever removed from the server)
+#    - dryRun enabled        (destructive steps only report what they would do)
+#  Turn these on deliberately, one at a time, after reviewing a dry run.
+# =============================================================================
+
+[paths]
+# Where perfint keeps everything it owns. Must be on a volume with room to grow.
+dataDir    = "D:/Veyra PI/data"
+# Raw .sparkprofile archive (tier T0). Can live on a different/larger volume.
+archiveDir = "D:/Veyra PI/data/archive"
+logDir     = "D:/Veyra PI/data/logs"
+
+# Refuse to ingest if the archive volume drops below this. Protects the host
+# from being filled by monitoring data.
+minFreeGb = 50
+
+
+[web]
+# The UI binds to loopback only. Do not change this to 0.0.0.0 without
+# understanding that the UI has no authentication.
+host = "127.0.0.1"
+port = 9101
+
+
+# =============================================================================
+#  SERVERS
+# =============================================================================
+#  `id` is a frozen UUID. All history keys off it, so you can rename the server,
+#  move it to another host, or change transport without losing any data.
+#  Generate one with:  node -e "console.log(crypto.randomUUID())"
+# =============================================================================
+
+[[servers]]
+id          = "00000000-0000-0000-0000-000000000000"  # CHANGE ME
+slug        = "main"                                   # internal, never renamed
+displayName = "My Server"                              # cosmetic only
+enabled     = true
+
+[servers.source]
+# How perfint reaches the server's files.
+transport = "smb"              # smb | local | ssh
+root      = "S:/"              # server root. Change this if the server moves.
+sparkDir  = "config/spark"     # spark's directory, relative to root
+logFile   = "logs/latest.log"  # read-only, used to confirm harvest results
+
+# HARD GUARD. The only paths perfint may ever write to or delete within, given
+# as paths relative to `root`. Every operation canonicalises its target and is
+# rejected if it resolves outside this list. Symlinks are refused.
+# An empty list makes the server strictly read-only.
+writeScope = ["config/spark"]
+
+# Filenames perfint is allowed to manage inside writeScope. Anything not
+# matching is reported and never touched.
+managedFilePattern = "^profile-\d{4}-\d{2}-\d{2}_\d{2}\.\d{2}\.\d{2}\.sparkprofile$"
+
+[servers.control]
+# How perfint sends a console command. `none` disables harvesting entirely.
+mode       = "none"            # none | tmux-ssh | rcon
+sshHost    = "minecraft"       # an entry in your ~/.ssh/config
+tmuxTarget = "minecraft"       # tmux session (or session:window.pane)
+
+[servers.harvest]
+enabled         = false        # MASTER SWITCH. Leave false until reviewed.
+intervalMinutes = 60           # spark discards data older than ~60 min
+# Skip the harvest if the hour was idle. Saves storage overnight with little
+# information loss. Off by default until we have data to justify it.
+skipIfIdle      = false
+idlePlayerMax   = 0
+idleMsptMax     = 3.0
+# Never send a command while a profiler you started is running.
+respectManualProfiler = true
+
+[servers.cleanup]
+# Removing harvested profiles from the server after they are safely archived.
+enabled        = false         # MASTER SWITCH. Requires writeScope + dry run.
+dryRun         = true          # report only; delete nothing
+retentionHours = 48            # keep this much on the server as a safety buffer
+minFileAgeMinutes = 10         # never touch anything younger than this
+
+
+# =============================================================================
+#  RETENTION  (perfint's own storage, on `paths.archiveDir` / `dataDir`)
+# =============================================================================
+
+[retention]
+# T0: raw .sparkprofile, zstd-compressed. Needed to re-decode or to open a
+# capture in spark's viewer.
+rawDays = 15
+
+# T1: decoded per-path x per-window series (columnar, sparse).
+windowDays = 90
+
+# T2: per-path x per-day rollups. Kept forever; this is the long-horizon
+# history that makes small recurring costs visible.
+rollupDays = 0                 # 0 = never expire
+
+# Raw captures matching any of these are kept indefinitely, past `rawDays`.
+[retention.pin]
+anomalies      = true          # MSPT/TPS excursions past the watch thresholds
+crashes        = true          # crash or watchdog evidence in the same window
+deployBoundary = true          # the hour around a recorded deploy or restart
+newHotPath     = true          # a path entering the top 20 for the first time
+playerRecord   = true          # a new peak player count
+manualCaptures = true          # anything you captured by hand
+citedAsEvidence = true         # anything a finding references
+
+
+# =============================================================================
+#  WATCH THRESHOLDS
+# =============================================================================
+#  Imported from your existing PATCH_LEADERBOARD.md conventions. These drive
+#  anomaly pinning and notifications, not the star rating.
+# =============================================================================
+
+[thresholds]
+msptMedianWatch = 30.0
+msptMedianBad   = 40.0
+msptMaxWatch    = 100.0
+tpsWatch        = 19.5
+tpsBad          = 18.0
+blockingChunkWaitMsWatch = 500
+blockingChunkWaitMsBad   = 1000
+
+
+# =============================================================================
+#  DISCORD  (outgoing webhook only -- no bot, no token, no inbound listener)
+# =============================================================================
+
+[discord]
+enabled    = false
+webhookUrl = ""                # CREDENTIAL. Never commit this file.
+
+# Quiet by default. `digest` batches everything into at most one post per
+# `digestIntervalMinutes`; `immediate` posts as events occur, still subject to
+# per-type cooldowns.
+mode                  = "digest"
+digestIntervalMinutes = 60
+perEventCooldownMinutes = 180
+
+[discord.events]
+newTopFinding   = true         # a new 3-star finding
+regression      = true         # a regression detected after a deploy
+anomalyCaptured = true
+crashEvidence   = true
+harvestFailure  = true
+collectorOffline = true
+seasonRollover  = true
+
+
+# =============================================================================
+#  COLLECTOR SELF-LIMITS
+# =============================================================================
+
+[limits]
+# perfint suspends its own work if it exceeds these, so it can never become the
+# thing that slows the machine down.
+maxRssMb        = 1024
+maxCpuPercent   = 50
+# A file at this path immediately suspends ALL interaction with every server.
+killSwitchFile  = "D:/Veyra PI/data/PAUSE"

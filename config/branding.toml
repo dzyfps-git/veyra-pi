@@ -1,0 +1,42 @@
+# =============================================================================
+#  PUBLIC BRANDING  --  the only file you edit to rename this application.
+# =============================================================================
+#
+#  Everything in this file is cosmetic. Changing any of it is safe at any time:
+#
+#    * It does NOT touch stored data.       (tables/keys use internal ids)
+#    * It does NOT change server identity.  (servers are keyed by UUID)
+#    * It does NOT break integrations.      (webhook/API use internal ids)
+#    * It does NOT require a code change.   (nothing is hardcoded)
+#
+#  Restart the collector after editing, or hit the "reload branding" action in
+#  the UI. Internal identifiers deliberately live elsewhere and never change --
+#  see `internal.frozen.toml` for the list and why each one is frozen.
+# =============================================================================
+
+# Full public name. Shown in the UI header, page titles, report headings and
+# webhook embeds.
+name = "Veyra Performance Intelligence"
+
+# Short form for tight spaces: browser tab, sidebar, webhook author line.
+shortName = "Veyra PI"
+
+# One line under the title. Empty string hides it.
+tagline = "Continuous performance history and optimization intelligence"
+
+# Accent colour, used by the UI and as the Discord embed stripe.
+# Any CSS hex colour.
+accentColor = "#6C8CFF"
+
+# Optional logo shown in the UI header. Path is relative to this file.
+# Leave empty for a text-only header.
+logoPath = ""
+
+# Optional footer note. Empty string hides it.
+footerNote = ""
+
+
+[reports]
+# Prefix applied to generated markdown reports and handoff briefs.
+# Cosmetic only -- filenames on disk use internal ids.
+headingPrefix = "Veyra"
