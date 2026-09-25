@@ -158,6 +158,11 @@ export function readableMethod(frame: string): string {
   return parts.slice(-2).join('.');
 }
 
+/** Code from Java or a shared library (fastutil, Guava...), never a mod's own. */
+export function isLibraryCode(frame: string): boolean {
+  return LIBRARY.test(frame);
+}
+
 export function isLibraryFrame(frame: string): boolean {
   return LIBRARY.test(frame) || NOT_MEANINGFUL.test(frame);
 }

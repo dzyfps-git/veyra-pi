@@ -141,11 +141,7 @@ export function toBatches(plan: Plan, fingerprint: string, env: string | undefin
   return out;
 }
 
-/**
- * The per-item answers inside an `owner` or `mixins` result. The draft
- * contract does not yet say how they are wrapped; this reads
- * `{"results": [...]}` (asked of envx, see docs/api.md) and nothing else.
- */
+/** The per-item answers of `owner` and `mixins`: `result.results`, one per item, in request order. */
 export function itemsOf(result: unknown): unknown[] | undefined {
   const items = (result as { results?: unknown } | null)?.results;
   return Array.isArray(items) ? items : undefined;
@@ -272,6 +268,11 @@ export async function refreshEnvx(
       if (response === undefined) return;
       if (!response.ok) {
         summary.mismatches.push(`${request.id}: envx error ${response.error?.code ?? '?'}: ${response.error?.message ?? ''}`);
+        return;
+      }
+      const answeredFor = (response.result as { snapshot?: { fingerprint?: unknown } } | null)?.snapshot?.fingerprint;
+      if (answeredFor !== fingerprint) {
+        summary.mismatches.push(`${request.id}: answered for snapshot ${String(answeredFor).slice(0, 12)}…, asked for ${fingerprint.slice(0, 12)}…`);
         return;
       }
       const items = itemsOf(response.result);

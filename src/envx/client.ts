@@ -71,7 +71,7 @@ export class ProcessEnvxClient implements EnvxClient {
     const all = [...this.#prefix, ...args];
     const viaCmd = process.platform === 'win32' && /\.(bat|cmd)$/i.test(this.#command);
     const child = viaCmd
-      ? spawn('cmd.exe', ['/d', '/s', '/c', `"${this.#command}" ${all.join(' ')}`], { windowsVerbatimArguments: true, windowsHide: true })
+      ? spawn('cmd.exe', ['/d', '/s', '/c', `""${this.#command}" ${all.join(' ')}"`], { windowsVerbatimArguments: true, windowsHide: true })
       : spawn(this.#command, all, { windowsHide: true });
     try {
       if (child.pid !== undefined) os.setPriority(child.pid, os.constants.priority.PRIORITY_BELOW_NORMAL);

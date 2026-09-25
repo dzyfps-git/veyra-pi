@@ -18,6 +18,11 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.1.26',
+    date: '2026-09-25',
+    notes: ['Optional envx link (Settings, Collection): Findings show which mod jar likely owns a hot method and which mixins target it.'],
+  },
+  {
     version: '0.1.25',
     date: '2026-09-25',
     notes: [

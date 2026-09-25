@@ -193,14 +193,17 @@ describe('asking and remembering', () => {
             ? { api: 1, id: r.id, ok: true, result: { status: 'match', modset: 'x', snapshots: [12] } }
             : r.op === 'snapshots'
               ? { api: 1, id: r.id, ok: true, result: { snapshots: [{ id: 12, fingerprint: 'f'.repeat(64), checked_at: '2026' }] } }
-              : { api: 1, id: r.id, ok: true, result: [{ status: 'exact', candidates: [] }] },
+              : r.op === 'owner'
+                ? { api: 1, id: r.id, ok: true, result: { snapshot: { fingerprint: 'f'.repeat(64) }, results: r.keys.map(() => ({ status: 'exact', candidates: [] })) } }
+                : { api: 1, id: r.id, ok: true, result: [] },
         ),
         mismatches: [],
       }),
     };
     const result = await refreshEnvx(store.db, broken, pathIds, { now: 1 });
     assert.match(result.mismatches.join('\n'), /modset differs/);
-    assert.match(result.mismatches.join('\n'), /no results list/);
+    assert.match(result.mismatches.join('\n'), /not an owner answer \(status "exact"\)/);
+    assert.match(result.mismatches.join('\n'), /mixins-0: answered for snapshot undefined/);
     assert.equal((store.db.prepare('SELECT count(*) AS n FROM envx_answer').get() as { n: number }).n, 0);
   });
 
@@ -209,12 +212,14 @@ describe('asking and remembering', () => {
     assert.deepEqual(['probable', 'ambiguous', 'none'].map((s) => certaintyLabel(s as 'probable')), ['Likely', 'Ambiguous', 'Unknown']);
 
     const all = pathIds.flatMap((id) => attributionFor(store.db, id));
-    assert.equal(envxBlock(all), '', 'not live until envx 1.1 is installed and checked');
+    assert.equal(envxBlock(all, false), '', 'nothing shows while answers are not live');
 
     const html = envxBlock(all, true);
     assert.match(html, /Likely:<\/b> minecraft 1\.20\.1/);
-    assert.match(html, /Ambiguous:<\/b> libone 1\.0 \(inside moda\) · libone 1\.2/);
-    assert.match(html, /Unknown:<\/b> not in any indexed jar/);
+    assert.match(html, /Ambiguous:<\/b> libone 1\.0 \(inside moda 1\) · libone 1\.2 \(inside modb 1\)/);
+    assert.doesNotMatch(html, /libone 0\.9/, 'a copy the server does not load is not a candidate');
+    assert.match(html, /Unknown:<\/b> no loaded jar defines it/);
+    assert.match(html, /ServerWorld\.managedBlock/, 'a merged handler shows under its own name');
     assert.match(html, /via Inject in modernfix\.mixin\.TargetMixin/);
     assert.match(html, /replaced by overwriter 3\.1/);
     assert.doesNotMatch(html, /exact/i);

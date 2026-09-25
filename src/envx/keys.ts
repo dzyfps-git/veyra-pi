@@ -18,7 +18,7 @@
 import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 
-import { parseMixin, withoutHiddenSuffix } from '../analysis/owner.ts';
+import { isLibraryCode, parseMixin, withoutHiddenSuffix } from '../analysis/owner.ts';
 import type { EnvxKey, EnvxTarget } from './contract.ts';
 
 export interface LookupKey {
@@ -77,7 +77,9 @@ export function captureMods(db: DatabaseSync, captureId: number): Array<[string,
 /**
  * The keys measured under these paths' own frames. Only keys recorded from a
  * capture: best-effort backfilled ones have no descriptor, and an owner looked
- * up without one would be a guess about which overload ran.
+ * up without one would be a guess about which overload ran. Library code (the
+ * JDK, Guava, fastutil...) is left out: it is in no mod jar (a real batch
+ * answered 'none' for all of it), and the app already credits it to its caller.
  */
 export function keysOfPaths(db: DatabaseSync, pathIds: readonly number[]): Map<number, LookupKey[]> {
   const out = new Map<number, LookupKey[]>();
@@ -91,6 +93,7 @@ export function keysOfPaths(db: DatabaseSync, pathIds: readonly number[]): Map<n
     const seen = new Set<string>();
     const keys: LookupKey[] = [];
     for (const row of query.all(pathId) as Array<{ c: string; m: string; d: string }>) {
+      if (isLibraryCode(`${row.c}.${row.m}`)) continue;
       const key = lookupKeyOf({ class: row.c, method: row.m, desc: row.d });
       if (seen.has(key.cacheKey)) continue;
       seen.add(key.cacheKey);

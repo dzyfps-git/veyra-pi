@@ -1,13 +1,12 @@
 /**
- * The envx machine interface, version 1 (envx's docs/api.md), as types.
+ * The envx machine interface, version 1 (envx's docs/api.md, envx 1.1.0), as types.
  *
  * envx is an optional, separate tool that indexes the server's mods: which jar
  * defines a class, which mixins target a method, what changed between two
  * states of the pack. This app only ASKS it, one way; nothing measured here is
  * ever sent to it, and it stores nothing we send.
  *
- * Written against the draft contract for envx 1.1. Everything here mirrors
- * that document; where an answer does not match it, the client reports a
+ * Everything here mirrors that document; where an answer does not match it, the client reports a
  * mismatch (client.ts) rather than guessing -- the fix belongs in whichever
  * side is wrong, not in a workaround here.
  */
@@ -15,11 +14,12 @@
 export const ENVX_API_VERSION = 1;
 
 /**
- * Whether envx answers are shown as findings. Off until envx 1.1 is installed
- * and a real batch has been checked against the contract: until then the only
- * answers are a stub's canned ones, which must never read as real attributions.
+ * Whether envx answers are shown as findings. Turned on once envx 1.1.0 was
+ * installed and a real batch matched the contract (no mismatches); before
+ * that the only answers were a stub's canned ones. Answers still show only
+ * from an envx that serves the interface (servesApi).
  */
-export const ENVX_ANSWERS_LIVE = false;
+export const ENVX_ANSWERS_LIVE = true;
 
 /** More items than this in one request is refused by envx (`too_many`). */
 export const ENVX_MAX_ITEMS = 5000;
@@ -70,53 +70,75 @@ export type EnvxMatch =
   | {
       status: 'none';
       modset: string;
-      closest?: { snapshot: number; missing: Array<[string, string]>; extra: Array<[string, string]> } | null;
+      /** For display only, never an answer. Absent when envx has no snapshot with a loader list. */
+      closest?: {
+        snapshot: number;
+        only_in_request_count: number;
+        only_in_request: Array<[string, string]>;
+        only_in_snapshot_count: number;
+        only_in_snapshot: Array<[string, string]>;
+      };
     };
 
-export interface EnvxCandidate {
-  mod: string;
-  version: string;
+/** A jar that bundles another. */
+export interface EnvxJarRef {
+  mod: string | null;
+  version: string | null;
   sha256: string;
-  file: string;
-  loaded: boolean;
-  nested_in: string[];
 }
 
-export interface EnvxMixinRef {
-  mod: string;
-  version: string;
+export interface EnvxCandidate {
+  /** Null for a library without fabric.mod.json: identified by sha256 and nested_in. */
+  mod: string | null;
+  version: string | null;
   sha256: string;
+  file: string;
+  /** False for a copy the server does not load (an older nested duplicate, a client-only library). */
+  loaded: boolean;
+  nested_in: EnvxJarRef[];
+}
+
+/** A declared mixin: the `mixin` block of a merged frame and each row of `mixins`. */
+export interface EnvxDeclaredMixin {
+  mod: string | null;
+  version: string | null;
+  sha256: string;
+  /** Present on `mixins` rows. */
+  nested_in?: EnvxJarRef[];
   mixin_class: string;
+  config: string;
   kind: string;
   handler: string;
   target: string;
+  at: string;
+  priority: number;
+  cancellable: boolean;
+  side: string;
+  /** From the current server's log; null for past snapshots (no log evidence). */
+  failed: boolean | null;
 }
 
 /** envx never answers `exact`: it knows what the jars contain, not which bytes the JVM loaded. */
 export type EnvxOwnerStatus = 'probable' | 'ambiguous' | 'none';
 
 export interface EnvxOwner {
+  /** Counts loaded candidates only: probable = one, ambiguous = several, none = zero. */
   status: EnvxOwnerStatus;
   candidates: EnvxCandidate[];
   class_found: boolean;
-  member_found: boolean;
-  yarn: { class: string; method?: string; desc?: string } | null;
-  mixin: EnvxMixinRef | null;
+  /** Null when no method was sent. */
+  member_found: boolean | null;
+  yarn: { class: string | null; method: string | null; desc: string | null } | null;
+  mixin: EnvxDeclaredMixin | null;
   hidden_lambda?: boolean;
 }
 
-export interface EnvxDeclaredMixin {
-  mod: string;
-  version: string;
-  sha256: string;
-  mixin_class: string;
-  kind: string;
-  handler: string;
-  at: string;
-  priority: number;
-  cancellable: boolean;
-  side: string;
-  failed: boolean;
+/** A snapshot as answers refer to it. */
+export interface EnvxSnapshotRef {
+  id: number;
+  env: string;
+  fingerprint: string;
+  modset: string | null;
 }
 
 export interface EnvxVersion {
