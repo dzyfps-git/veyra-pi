@@ -18,6 +18,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.1.28',
+    date: '2026-09-26',
+    notes: [
+      'New look: a top bar, an icon rail, and a home screen built around the server and its latest minute.',
+      'Theme is now Focus colour (Settings, App): Blue, Ice or Warm. The light theme is gone.',
+      'Nothing on screen moves on its own, so an open window still costs no CPU.',
+    ],
+  },
+  {
     version: '0.1.27',
     date: '2026-09-25',
     notes: [

@@ -333,10 +333,10 @@ export function stallsPage(
     groups.set(key, g);
   }
   const ranges = [24, 72, 168]
-    .map((h) => `<a class="button ${h === rangeHours ? '' : 'ghost'}" href="/stalls?hours=${h}">${h === 24 ? 'Last 24 h' : h === 72 ? '3 days' : '7 days'}</a>`)
+    .map((h) => `<a class="${h === rangeHours ? 'on' : ''}" href="/stalls?hours=${h}">${h === 24 ? 'Last 24 h' : h === 72 ? '3 days' : '7 days'}</a>`)
     .join('');
   return `${INVESTIGATE_STYLE}
-<div class="pager" style="margin-bottom:16px">${ranges}</div>
+<div class="seg" style="margin-bottom:16px">${ranges}</div>
 ${
   list.length === 0
     ? banner('ok', 'No freezes.', 'No tick took longer than half a second in this span (recorded minutes only).')

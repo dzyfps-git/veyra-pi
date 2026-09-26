@@ -139,7 +139,7 @@ function control(def: SettingDef, value: SettingValue): string {
         (def.options ?? [])
           .map(
             (option) =>
-              `<option value="${esc(option)}" ${option === value ? 'selected' : ''}>${esc(optionLabel(option))}</option>`,
+              `<option value="${esc(option)}" ${option === value ? 'selected' : ''}>${esc(def.optionLabels?.[option] ?? optionLabel(option))}</option>`,
           )
           .join('') +
         `</select>`
@@ -460,7 +460,8 @@ ${advanced ? '' : plannedList}
     el.dataset.serverValue = String(value);
     perfint.toast('Saved: ' + el.dataset.label);
     if (key === 'interface.theme') {
-      document.documentElement.dataset.theme = value;
+      document.documentElement.dataset.focus = value;
+      window.perfintRedrawField?.();
       window.perfintDesktop?.setTheme?.(value);
     }
     if (el.closest('.pathrow')) setTimeout(() => location.reload(), 600);

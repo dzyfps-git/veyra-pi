@@ -59,6 +59,8 @@ export interface SettingDef {
   max?: number;
   step?: number;
   options?: readonly string[];
+  /** How each option reads in the UI, where its stored value is not already plain words. */
+  optionLabels?: Readonly<Record<string, string>>;
   /** Keys that must be truthy for this setting to do anything. */
   dependsOn?: readonly string[];
   /** Extra warning shown before a change is accepted. */
@@ -942,11 +944,12 @@ export const SETTINGS: readonly SettingDef[] = [
   },
   {
     key: 'interface.theme',
-    label: 'Theme',
-    help: 'Dark, light, or follow Windows.',
+    label: 'Focus colour',
+    help: 'The one colour the interface is tinted with. Status colours (healthy, needs attention, failing) never change.',
     type: 'enum',
-    default: 'dark',
-    options: ['dark', 'light', 'system'],
+    default: 'neutral',
+    options: ['neutral', 'ice', 'warm'],
+    optionLabels: { neutral: 'Blue', ice: 'Ice', warm: 'Warm' },
     group: 'App',
     advanced: false,
     risk: 'safe',

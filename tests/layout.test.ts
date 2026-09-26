@@ -1,5 +1,5 @@
 /**
- * The shell: the update card at the foot of the sidebar, and the app's own fonts.
+ * The shell: updates in the top bar, the version at the foot of the rail, and the app's own fonts.
  */
 
 import { test, describe } from 'node:test';
@@ -12,10 +12,10 @@ const page = (extra: Record<string, string>): string =>
   layout({ branding: BRAND, title: 'Overview', active: '/', nav: [], body: '', version: '0.1.15', ...extra } as unknown as Parameters<typeof layout>[0]);
 
 describe('the update card', () => {
-  test('a ready version installs from the sidebar in one click', () => {
+  test('a ready version installs from the top bar in one click', () => {
     const html = page({ update: '0.1.16' });
-    assert.match(html, /New version available/);
-    assert.match(html, /class="js-install-now" data-version="0\.1\.16"/);
+    assert.match(html, /Install 0\.1\.16/);
+    assert.match(html, /class="small js-install-now" data-version="0\.1\.16"/);
   });
   test('a download in progress says so and refreshes itself', () => {
     const html = page({ downloading: '0.1.16' });

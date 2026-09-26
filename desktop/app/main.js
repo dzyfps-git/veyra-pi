@@ -228,8 +228,8 @@ function createWindow() {
     y: state.y,
     minWidth: 900,
     minHeight: 600,
-    // Matches the interface background so there is no flash on open.
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#14161A' : '#F5F6F8',
+    // Matches the interface ground so there is no flash on open.
+    backgroundColor: GROUNDS.neutral,
     title: BRAND.name,
     icon: fs.existsSync(ICON) ? ICON : undefined,
     autoHideMenuBar: true,
@@ -296,11 +296,16 @@ function nearestExisting(candidate) {
   return undefined;
 }
 
-/** Dark, light or system, from the app's Theme setting. Anything else is ignored. */
+/**
+ * The ground of each Focus colour (src/web/layout.ts FOCUS_PALETTES). The
+ * interface is dark only, so native parts (menus, scrollbars) are too.
+ */
+const GROUNDS = { neutral: '#08090D', ice: '#05090C', warm: '#0C0806' };
+
+/** The window ground for the app's Focus colour setting; anything else is neutral. */
 function applyTheme(theme) {
-  if (theme !== 'dark' && theme !== 'light' && theme !== 'system') return;
-  nativeTheme.themeSource = theme;
-  if (win !== null && !win.isDestroyed()) win.setBackgroundColor(nativeTheme.shouldUseDarkColors ? '#14161A' : '#F5F6F8');
+  nativeTheme.themeSource = 'dark';
+  if (win !== null && !win.isDestroyed()) win.setBackgroundColor(GROUNDS[theme] ?? GROUNDS.neutral);
 }
 
 ipcMain.handle('perfint:theme', async (event, theme) => {

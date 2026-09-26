@@ -4,7 +4,7 @@
  * A server's home is the one place to understand it: is it being monitored
  * and how, is its setup healthy, and its whole history -- machine, world,
  * season -- as a single timeline, with its captures underneath. The rest of
- * the app shows one server at a time (chosen in the sidebar); this page is
+ * the app shows one server at a time (chosen in the top bar); this page is
  * where that server is described and controlled.
  */
 

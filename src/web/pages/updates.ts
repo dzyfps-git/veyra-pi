@@ -2,8 +2,8 @@
  * Updates: the running version and what is new in it, a newer version when
  * one is waiting, where new versions are looked for, and going back.
  *
- * Reached from the version at the foot of the sidebar (and the "Update to …"
- * button there when one is ready). This is the only place for any of it.
+ * Reached from the version at the foot of the rail (and the Install button
+ * in the top bar when one is ready). This is the only place for any of it.
  *
  * Installing and going back need the desktop app (it runs the installer);
  * in a plain browser the page says so instead of offering buttons that

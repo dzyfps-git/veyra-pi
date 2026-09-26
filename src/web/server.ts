@@ -191,14 +191,14 @@ export function createWebServer(options: WebOptions) {
       { href: '/findings', label: 'Findings', icon: 'findings' },
       { href: '/changes', label: 'Changes', icon: 'changes' },
       questions > 0
-        ? { href: '/server', label: 'Server & history', icon: 'server', badge: String(questions) }
-        : { href: '/server', label: 'Server & history', icon: 'server' },
+        ? { href: '/server', label: 'Server & history', short: 'Server', icon: 'server', badge: String(questions) }
+        : { href: '/server', label: 'Server & history', short: 'Server', icon: 'server' },
       { href: '/reports', label: 'Reports', icon: 'reports' },
-      { href: '/servers', label: 'All servers', icon: 'servers', section: 'App' },
+      { href: '/servers', label: 'All servers', short: 'Servers', icon: 'servers', section: 'App' },
       pending > 0
         ? { href: '/settings', label: 'Settings', icon: 'settings', badge: String(pending) }
         : { href: '/settings', label: 'Settings', icon: 'settings' },
-      { href: '/guide', label: 'How it works', icon: 'guide' },
+      { href: '/guide', label: 'How it works', short: 'Guide', icon: 'guide' },
     ];
   };
 
@@ -240,7 +240,7 @@ export function createWebServer(options: WebOptions) {
     title: string,
     subtitle: string,
     body: string,
-    extra: { current?: ServerConfig | undefined; here?: string; context?: string; actions?: string } = {},
+    extra: { current?: ServerConfig | undefined; here?: string; context?: string; actions?: string; bare?: boolean } = {},
   ): string =>
     layout({
       branding,
@@ -255,6 +255,7 @@ export function createWebServer(options: WebOptions) {
       ...(extra.here === undefined ? {} : { here: extra.here }),
       ...(extra.context === undefined ? {} : { context: extra.context }),
       ...(extra.actions === undefined ? {} : { actions: extra.actions }),
+      ...(extra.bare === true ? { bare: true } : {}),
       paused: settings.getBoolean('limits.paused'),
       version: APP_VERSION,
       ...(availableUpdate() === undefined ? {} : { update: availableUpdate()!.version }),
@@ -289,9 +290,9 @@ export function createWebServer(options: WebOptions) {
           title: string,
           subtitle: string,
           body: string,
-          extra: { context?: string; actions?: string } = {},
+          extra: { context?: string; actions?: string; bare?: boolean } = {},
         ): string => page(active, title, subtitle, body, { current, here, ...extra });
-        // Choosing a server in the sidebar is remembered for every page.
+        // Choosing a server in the top bar is remembered for every page.
         if (url.searchParams.has('server') && current !== undefined) {
           res.setHeader('set-cookie', `perfint_server=${encodeURIComponent(current.id)}; Path=/; SameSite=Lax; Max-Age=31536000`);
         }
@@ -763,7 +764,8 @@ export function createWebServer(options: WebOptions) {
                 'Overview',
                 'How this server is performing, and what needs attention.',
                 justUpdatedBanner() + overviewPage(store.db, settings, current, options.links, (p) => store.resolveDataPath(p), url.searchParams),
-                { context: contextLine(contextFor(store.db, current)) },
+                // Home draws its own head: the server in focus, its state and the latest minute.
+                { bare: true },
               ),
             );
           case '/ledger': {
@@ -1087,7 +1089,7 @@ export function createWebServer(options: WebOptions) {
             }
           }
           case '/api/update/status': {
-            // The sidebar asks while a download runs; a directory listing, once.
+            // The top bar asks while a download runs; a directory listing, once.
             updateCache = undefined;
             return json(res, 200, { ready: availableUpdate()?.version ?? null, downloading: options.updateStatus?.().downloading ?? null });
           }

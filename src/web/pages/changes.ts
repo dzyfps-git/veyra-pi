@@ -142,7 +142,7 @@ function detectedView(store: Store, settings: SettingsStore, serverId?: string):
         <a href="/changes?view=compare&change=${c.revisionId}"><button class="ghost" style="width:100%">Compare before / after</button></a>
         ${
           c.trackedId === undefined
-            ? `<button class="js-track-change" data-revision="${c.revisionId}">Track as a patch</button>`
+            ? `<button class="ghost js-track-change" data-revision="${c.revisionId}">Track as a patch</button>`
             : `<a href="/changes?view=tracked"><button class="ghost" style="width:100%">Tracked as #${c.trackedId}</button></a>`
         }
       </div>

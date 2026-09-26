@@ -204,22 +204,25 @@ describe('the reorganised pages', () => {
     }
   });
 
-  test('the nav groups this server pages, then the app', async () => {
+  test('the rail groups this server pages, then the app', async () => {
     const body = await (await fetch(`${base}/`)).text();
-    const nav = /<nav[\s\S]*?<\/nav>/.exec(body)?.[0] ?? '';
-    assert.ok(nav !== '', 'the page should have a nav');
-    // Only the navigation items -- the server switcher also lists names.
-    const labels = [...nav.matchAll(/<a class="item[^"]*"[^>]*>(?:<svg[\s\S]*?<\/svg>)?<span>([^<]+)<\/span>/g)].map((m) => m[1]);
+    const nav = /<nav class="rail"[\s\S]*?<\/nav>/.exec(body)?.[0] ?? '';
+    assert.ok(nav !== '', 'the page should have a rail');
+    // Each item's full name is its title; the rail shows a short label under the icon.
+    const labels = [...nav.matchAll(/<a class="rail-item[^"]*"[^>]*title="([^"]+)"/g)].map((m) => m[1]);
     assert.deepEqual(labels, [
       'Overview', 'Findings', 'Changes', 'Server &amp; history', 'Reports',
       'All servers', 'Settings', 'How it works',
     ]);
-    assert.match(nav, /class="switcher"/, 'the server switcher is in the sidebar');
+    assert.equal((nav.match(/class="rail-gap"/g) ?? []).length, 1, 'one gap, between this server and the app');
+    const bar = /<header class="topbar"[\s\S]*?<\/header>/.exec(body)?.[0] ?? '';
+    assert.match(bar, /class="focus-switch"/, 'the server switcher is in the top bar');
   });
 
   test('Overview says what collection being off costs', async () => {
     const body = await (await fetch(`${base}/`)).text();
-    assert.match(body, /Collection is off for Main/);
+    assert.match(body, /class="focus-title">Main</);
+    assert.match(body, /Collection is off/);
     assert.match(body, /last hour/);
   });
 });

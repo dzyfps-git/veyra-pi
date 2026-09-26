@@ -1,7 +1,7 @@
 /**
  * Overview: the one page to open.
  *
- * It answers, in this order, for the server chosen in the sidebar and its
+ * It answers, in this order, for the server chosen in the top bar and its
  * current season only:
  *
  *   1. Is monitoring working?      health, and how much of the last day
@@ -350,6 +350,104 @@ const CHART_STYLE = `<style>
 .steps .s { color: var(--text-dim); font-size: 13px; margin-top: 2px; }
 </style>`;
 
+
+/**
+ * Home's head: the server in focus, its state in chips and one sentence,
+ * the latest minute on the tick-budget gauge, and a status column.
+ */
+const HOME_STYLE = `<style>
+.home { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(280px, 340px); gap: 18px 28px; align-items: center; margin: 2px 0 24px; }
+.hero { min-width: 0; }
+.focus-title { font: 600 clamp(52px, 5.6vw, 92px)/.9 var(--display); font-stretch: 75%; font-variation-settings: "wdth" 75; letter-spacing: .015em; text-transform: uppercase;
+  margin: 10px 0 16px; overflow-wrap: anywhere; color: var(--text-strong);
+  background: linear-gradient(180deg, #fff 30%, var(--focus)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 calc(10px + 26px * var(--energy)) rgba(var(--focus-rgb), .35)); }
+.focus-title.dim { opacity: .4; filter: none; }
+.hero .lead { color: var(--text-dim); font-size: 14px; line-height: 1.6; max-width: 580px; margin: 16px 0 0; }
+.hero .acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.gauge { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.gauge .g-note { font: 400 10.5px/1.5 var(--mono); letter-spacing: .03em; color: var(--text-dim); text-align: center; max-width: 250px; }
+.core { position: relative; width: 220px; height: 220px; }
+.core svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.core .ring line, .core .ring circle { stroke: rgba(var(--focus-rgb), .42); stroke-width: 1; fill: none; }
+.core .seg { fill: none; stroke: rgba(255,255,255,.08); stroke-width: 7; stroke-linecap: round; }
+.core .seg.on { stroke: var(--focus); filter: drop-shadow(0 0 5px var(--focus)); }
+.core.warn .seg.on { stroke: var(--warn); filter: drop-shadow(0 0 5px var(--warn)); }
+.core.bad .seg.on { stroke: var(--bad); filter: drop-shadow(0 0 5px var(--bad)); }
+.core .seg.unset { stroke: rgba(var(--focus-rgb), .18); stroke-dasharray: 3 6; }
+.core .hair { fill: none; stroke: var(--focus-line); }
+.core.off .ring line, .core.off .ring circle { stroke: rgba(255,255,255,.12); }
+.core .label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; text-align: center; }
+.core .val { font: 500 46px/1 var(--display); font-stretch: 75%; font-variation-settings: "wdth" 75; color: var(--text-strong); font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 20px rgba(var(--focus-rgb), .6); }
+.core.warn .val { color: var(--warn); text-shadow: none; }
+.core.bad .val { color: var(--bad); text-shadow: none; }
+.home .side { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.home .side .panel { margin: 0; }
+.home .side .panel-head { padding: 14px 16px 0; min-height: 0; }
+.home .side .panel-body { padding: 6px 16px 12px; }
+.kv { display: flex; justify-content: space-between; align-items: baseline; gap: 14px; padding: 7px 2px; border-bottom: 1px dashed var(--rule); font-size: 12.5px; }
+.kv .k { font: 500 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--text-faint); white-space: nowrap; }
+.kv .v { color: var(--text-strong); font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.line-btn { display: flex; justify-content: space-between; align-items: center; padding: 10px 2px 2px; color: var(--focus); font: 600 10.5px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.line-btn:hover { text-decoration: none; color: var(--focus-2); }
+.side .attention a, .side .attention .att-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-top: 6px; border-radius: var(--radius-tile);
+  border: 1px solid rgba(255,255,255,.06); background: rgba(255,255,255,.025); color: var(--text); font-size: 13px; line-height: 1.4; }
+.side .attention a:hover { background: var(--focus-soft); border-color: rgba(var(--focus-rgb), .35); color: var(--text-strong); text-decoration: none; }
+.side .attention .icon { color: var(--warn); }
+@media (max-width: 1250px) { .home { grid-template-columns: minmax(0, 1fr) auto; } .home .side { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); } }
+@media (max-width: 760px) { .home { grid-template-columns: 1fr; } .gauge { justify-self: center; } }
+</style>`;
+
+/**
+ * The tick budget: 50 ms a tick, in four steps of 12.5, lit up to the value.
+ * Nothing known lights nothing: dashed steps and a dash, never a guess.
+ */
+function coreGauge(value: number | undefined, tone: 'warn' | 'bad' | undefined, caption: string): string {
+  const s = 220;
+  const c = s / 2;
+  const r = 90;
+  const lit = value === undefined ? 0 : Math.min(4, Math.max(1, Math.ceil(value / 12.5)));
+  const pt = (deg: number): string => `${(c + r * Math.cos((deg * Math.PI) / 180)).toFixed(2)} ${(c + r * Math.sin((deg * Math.PI) / 180)).toFixed(2)}`;
+  const ticks = Array.from({ length: 72 }, (_, i) => {
+    const a = (i / 72) * Math.PI * 2;
+    const r1 = r + 10;
+    const r2 = r + (i % 6 === 0 ? 18 : 14);
+    return `<line x1="${(c + r1 * Math.cos(a)).toFixed(1)}" y1="${(c + r1 * Math.sin(a)).toFixed(1)}" x2="${(c + r2 * Math.cos(a)).toFixed(1)}" y2="${(c + r2 * Math.sin(a)).toFixed(1)}"/>`;
+  }).join('');
+  const segs = [0, 1, 2, 3]
+    .map((k) => {
+      const from = -90 + k * 90 + 3.5;
+      return `<path d="M ${pt(from)} A ${r} ${r} 0 0 1 ${pt(from + 83)}" class="seg${k < lit ? ' on' : value === undefined ? ' unset' : ''}"/>`;
+    })
+    .join('');
+  return `<div class="core${value === undefined ? ' off' : tone === undefined ? '' : ` ${tone}`}" role="img" aria-label="${esc(value === undefined ? 'No minute recorded yet' : `${num(value, 1)} MSPT of the 50 ms tick budget`)}">
+    <svg viewBox="0 0 ${s} ${s}" aria-hidden="true"><g class="ring">${ticks}<circle cx="${c}" cy="${c}" r="${r - 24}" stroke-dasharray="2 7"/></g>${segs}<circle class="hair" cx="${c}" cy="${c}" r="${r - 10}"/></svg>
+    <div class="label"><div class="cap">${esc(caption)}</div><div class="val">${value === undefined ? '—' : num(value, 1)}</div><div class="cap">${value === undefined ? 'nothing yet' : 'MSPT of 50'}</div></div>
+  </div>`;
+}
+
+/** The hero: a caption, the server's name, up to three chips and one sentence. */
+function heroBlock(input: { caption: string; name: string; dim?: boolean; chips: string[]; lead: string; acts?: string; energy?: number }): string {
+  return `<div class="hero" style="--energy:${(input.energy ?? 0.5).toFixed(2)}">
+    <div class="cap">${esc(input.caption)}</div>
+    <h1 class="focus-title${input.dim === true ? ' dim' : ''}">${esc(input.name)}</h1>
+    ${input.chips.length === 0 ? '' : `<div class="chips">${input.chips.slice(0, 3).join('')}</div>`}
+    <p class="lead">${input.lead}</p>
+    ${input.acts === undefined || input.acts === '' ? '' : `<div class="acts">${input.acts}</div>`}
+  </div>`;
+}
+
+/** The monitoring state as a chip: always a word, coloured only when it is a status. */
+function stateChip(server: ServerConfig, paused: boolean, tone: 'ok' | 'warn' | 'info' | 'bad'): string {
+  if (server.collection === 'off') return '<span class="chip off">Collection off</span>';
+  if (paused) return '<span class="chip off">Paused</span>';
+  if (tone === 'bad') return '<span class="chip bad">Failing</span>';
+  if (tone === 'warn') return '<span class="chip off">Needs attention</span>';
+  if (tone === 'info') return '<span class="chip">Waiting</span>';
+  return `<span class="chip live">${server.collection === 'watch' ? 'Watching' : 'Collecting'}</span>`;
+}
+
 /** A guided start for an empty app: what to do, in order, with where each step is done. */
 function gettingStarted(db: DatabaseSync, server: ServerConfig | undefined): string {
   const hasServer = server !== undefined;
@@ -402,17 +500,22 @@ export function overviewPage(
   const paused = settings.getBoolean('limits.paused');
   const facts = server === undefined ? undefined : serverFacts(db, server.id);
   if (server === undefined || facts === undefined || facts.captures === 0) {
-    const health =
+    const head =
       server === undefined
-        ? ''
+        ? heroBlock({ caption: 'No server yet', name: 'Add a server', dim: true, chips: [], lead: 'Point the app at your Minecraft server and it records how every tick is spent, from then on.' })
         : (() => {
             const st = statusOf(db, server, paused, links?.get(server.id));
-            return server.collection === 'off'
-              ? banner('info', `Collection is off for ${esc(server.displayName)}.`,
-                  'spark keeps only its last hour of samples, so each hour this stays off is history that will never exist.')
-              : banner(st.tone, `${esc(st.words)}.`, 'Waiting for the first capture.');
+            return heroBlock({
+              caption: 'Server in focus',
+              name: server.displayName,
+              chips: [`<span class="chip">${esc(server.kind)}</span>`, stateChip(server, paused, st.tone)],
+              lead:
+                server.collection === 'off'
+                  ? 'Collection is off. spark keeps only its last hour of samples, so each hour this stays off is history that will never exist.'
+                  : `${esc(st.words)}. Waiting for the first capture.`,
+            });
           })();
-    return CHART_STYLE + health + gettingStarted(db, server);
+    return `${CHART_STYLE}${HOME_STYLE}<section class="home" style="grid-template-columns:minmax(0,1fr)">${head}</section>${gettingStarted(db, server)}`;
   }
 
   const now = Date.now();
@@ -426,18 +529,14 @@ export function overviewPage(
     .get(server.id) as { t: number | null };
   const day = coverage(db, { serverId: server.id, fromMs: now - 86_400_000, toMs: now });
   const recordedHours = day.recordedMs / 3_600_000;
-  const health =
+  // The monitoring state, in one sentence under the server's name.
+  const lead =
     server.collection === 'off'
-      ? banner('info', `Collection is off for ${esc(server.displayName)}.`,
-          server.kind === 'production'
-            ? 'spark keeps only its last hour of samples and discards everything older, so each hour this stays off is history that will never exist. <a href="/server#monitoring">Turn it on</a>.'
-            : 'Its history stays viewable. <a href="/server#monitoring">Change this</a>.')
-      : banner(
-          paused ? 'warn' : st.tone,
-          paused ? 'All monitoring is paused.' : `${esc(st.words)}.`,
-          `${lastIngest.t === null ? '' : `Last capture ${esc(ago(lastIngest.t))}. `}${esc(coverageWords(day))} in the last 24 hours.`,
-          `${st.tone === 'bad' && !paused ? '<button type="button" class="ghost js-retry-harvest">Try again now</button> ' : ''}<a class="button ghost" href="/server">Details</a>`,
-        );
+      ? server.kind === 'production'
+        ? 'Collection is off. spark keeps only its last hour of samples and discards everything older, so each hour this stays off is history that will never exist. <a href="/server#monitoring">Turn it on</a>.'
+        : 'Collection is off; its history stays viewable. <a href="/server#monitoring">Change this</a>.'
+      : `${paused ? 'All monitoring is paused.' : `${esc(st.words)}.`} ${esc(coverageWords(day))} in the last 24 hours.`;
+  const heroActs = st.tone === 'bad' && !paused && server.collection !== 'off' ? '<button type="button" class="ghost js-retry-harvest">Try again now</button>' : '';
 
   // --- 4 (computed early). what needs attention -----------------------------
   const attention: string[] = [];
@@ -495,18 +594,46 @@ export function overviewPage(
     v === null || v === undefined ? undefined : v >= bad ? 'bad' : v >= warn ? 'warn' : undefined;
   const of24 = `over the ${num(recordedHours, 1)} recorded h of the last 24`;
 
+  // The latest minute on the gauge; what it covers underneath.
+  const latestTone = tone(latest?.v);
+  const latestNote =
+    latest === undefined
+      ? 'nothing recorded yet'
+      : `${esc(clock(latest.t))} · ${latest.p === null ? '—' : latest.p === 0 ? 'nobody online' : `${latest.p} player${latest.p === 1 ? '' : 's'}`}${
+          band === undefined || band.minutes < 10 ? '' : ` · normal ${latest.p === 0 ? 'when empty' : `for ${latest.p}`}: ${num(band.median, 1)}`
+        }${latestTone === 'bad' ? ' · too slow' : latestTone === 'warn' ? ' · above the watch line' : ''}`;
+  const gauge = `<div class="gauge">${coreGauge(latest?.v, latestTone === 'ok' ? undefined : latestTone, 'Latest minute')}<div class="g-note">${latestNote}</div></div>`;
+  const statusRows: Array<[string, string]> = [
+    ['Last capture', lastIngest.t === null ? '—' : ago(lastIngest.t)],
+    ...(season === undefined ? [] : [['Season', q.seasonName(season)] as [string, string]]),
+    ...(facts.machine === null ? [] : [['Machine', facts.machine] as [string, string]]),
+    ...(facts.world === null ? [] : [['World', facts.world] as [string, string]]),
+  ];
+  const statusPanel = panel(
+    'This server',
+    statusRows.map(([k, v]) => `<div class="kv"><span class="k">${esc(k)}</span><span class="v" title="${esc(v)}">${esc(v)}</span></div>`).join('') +
+      '<a class="line-btn" href="/server">Server &amp; history <span>›</span></a>',
+  );
+  // How hard the tick is working sets how strongly the name glows; nothing moves.
+  const energy = latest === undefined ? 0.5 : Math.min(1, Math.max(0.2, latest.v / 50));
+  const home = `<section class="home">
+    ${heroBlock({
+      caption: 'Server in focus',
+      name: server.displayName,
+      chips: [
+        `<span class="chip">${esc(server.kind)}</span>`,
+        stateChip(server, paused, st.tone),
+        ...(latest === undefined || latest.p === null ? [] : [`<span class="chip">${latest.p === 0 ? 'nobody online' : `${latest.p} player${latest.p === 1 ? '' : 's'}`}</span>`]),
+      ],
+      lead,
+      acts: heroActs,
+      energy,
+    })}
+    ${gauge}
+    <div class="side">${statusPanel}${attention.length === 0 ? '' : panel('Needs attention', `<div class="attention">${attention.join('')}</div>`, { tone: 'warn' })}</div>
+  </section>`;
+
   const figures = `<div class="stats">
-    ${stat(
-      'Latest minute',
-      latest === undefined ? '—' : num(latest.v, 1),
-      'MSPT',
-      latest === undefined
-        ? 'nothing recorded yet'
-        : `${latest.p === null ? '—' : latest.p === 0 ? 'nobody online' : `${latest.p} player${latest.p === 1 ? '' : 's'}`} · ${esc(clock(latest.t))}${
-            band === undefined || band.minutes < 10 ? '' : ` · normal ${latest.p === 0 ? 'when empty' : `for ${latest.p}`}: ${num(band.median, 1)}`
-          }`,
-      tone(latest?.v),
-    )}
     ${stat(
       'Typical while playing',
       median === null ? '—' : num(median, 1),
@@ -535,6 +662,10 @@ export function overviewPage(
         : `${esc(clock(worstFreeze.window.startTime))}${worstFreeze.wait === undefined ? '' : ` · ${esc(worstFreeze.wait.what.replace(/^waited for /, 'waiting for '))}`}`,
       worstFreeze === undefined ? undefined : 'bad',
     )}
+    <div class="stat"><div class="stat-label">Recorded</div>
+      <div class="stat-value">${num(recordedHours, 1)}<span class="stat-unit">h of 24</span></div>
+      <div class="meter"><span style="width:${Math.round(Math.min(1, day.fraction) * 100)}%"></span></div>
+      <div class="stat-note">${Math.round(day.fraction * 100)}% of the last 24 hours has data; gaps are shaded on the chart</div></div>
   </div>`;
 
   // The chart starts where recording does, so an empty stretch before the
@@ -608,9 +739,8 @@ export function overviewPage(
           .join('');
 
 
-  return `${CHART_STYLE}${COVERAGE_STYLE}${INVESTIGATE_STYLE}
-${health}
-${attention.length === 0 ? '' : panel('Needs attention', `<div class="attention">${attention.join('')}</div>`, { tone: 'warn' })}
+  return `${CHART_STYLE}${COVERAGE_STYLE}${INVESTIGATE_STYLE}${HOME_STYLE}
+${home}
 ${figures}
 ${chart}
 <div class="grid-2">
