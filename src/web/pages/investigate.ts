@@ -44,6 +44,7 @@ export const INVESTIGATE_STYLE = `<style>
 .mini .nm .tag { font-size: 10.5px; margin-left: 4px; }
 .mini .nm a { color: var(--text); }
 .mini .nm a:hover { color: var(--accent); }
+.mini .nm a.picked { color: var(--focus-2); background: var(--focus-soft); outline: 1px solid rgba(var(--focus-rgb), .6); border-radius: 6px; padding: 0 5px; }
 .mini .fig { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; }
 .mini .up { color: var(--bad); }
 .mini .down { color: var(--ok); }
@@ -116,12 +117,16 @@ function systemsTable(rows: Difference[], minuteStart: number): string {
                 const tone = Math.abs(d) < 0.03 ? 'faint' : d > 0 ? 'up' : 'down';
                 const href = open(t.system, t.subject);
                 const name = `${esc(t.label)}${t.owner === undefined ? '' : `<span class="tag">${esc(t.owner)}</span>`}`;
-                return `<div><span class="nm" title="${esc(t.label)}">${href === '' || t.subject === '' ? name : `<a href="${esc(href)}" title="What is inside ${esc(t.label)} this minute, and hand it off">${name}</a>`}</span>
+                const pick =
+                  t.system === undefined || t.subject === undefined || t.subject === ''
+                    ? ''
+                    : ` data-system="${esc(t.system)}" data-subject="${esc(t.subject)}" data-part="${esc(r.label)}" data-mspt="${t.here}"`;
+                return `<div><span class="nm" title="${esc(t.label)}">${href === '' || t.subject === '' ? name : `<a href="${esc(href)}"${pick} title="What is inside ${esc(t.label)} this minute, and hand it off. Ctrl-click to pick several.">${name}</a>`}</span>
                   <span class="fig">${num(t.here, 2)}</span>
                   <span class="fig ${tone}" title="against ${num(t.normal, 2)} normally">${sign(d)}</span></div>`;
               })
               .join('')}</div>
-            <div class="faint" style="font-size:11.5px;margin-top:6px">MSPT this minute, and the change from normal. Click a thing to open it.
+            <div class="faint" style="font-size:11.5px;margin-top:6px">MSPT this minute, and the change from normal. Click a thing to open it; Ctrl-click to pick several and open them together.
               ${r.system === undefined ? '' : `<a href="${esc(open(r.system))}">Open ${esc(r.label)} in Findings</a>`}</div>`;
       return `<details class="sys">
         <summary>
@@ -135,7 +140,45 @@ function systemsTable(rows: Difference[], minuteStart: number): string {
         <div class="inner">${inner}</div>
       </details>`;
     })
-    .join('');
+    .join('') + minutePicks(`/findings?${new URLSearchParams(span).toString()}`);
+}
+
+/**
+ * Ctrl-click several things inside one part of a minute, then open them
+ * together in Findings (which hands them off as one brief). Picking in
+ * another part starts over: Findings looks inside one part at a time.
+ */
+function minutePicks(base: string): string {
+  return `<div class="pick-bar" id="minute-picks" hidden>
+    <span><b class="js-pick-count"></b> · <span class="fig js-pick-mspt"></span> MSPT this minute</span><span class="grow"></span>
+    <a class="button small js-pick-open" href="#">Open together</a>
+    <button type="button" class="ghost small js-pick-clear">Clear</button>
+  </div>
+<script>
+(() => {
+  const bar = document.getElementById('minute-picks');
+  const base = ${JSON.stringify(base)};
+  const picked = new Map();
+  let system = null, part = '';
+  const draw = () => {
+    bar.hidden = picked.size === 0;
+    for (const a of document.querySelectorAll('.mini a[data-subject]')) a.classList.toggle('picked', a.dataset.system === system && picked.has(a.dataset.subject));
+    bar.querySelector('.js-pick-count').textContent = picked.size + (picked.size === 1 ? ' thing' : ' things') + ' in ' + part;
+    bar.querySelector('.js-pick-mspt').textContent = [...picked.values()].reduce((s, v) => s + v, 0).toFixed(2);
+    bar.querySelector('.js-pick-open').href = base + '&system=' + encodeURIComponent(system) + [...picked.keys()].map((k) => '&subject=' + encodeURIComponent(k)).join('');
+  };
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest?.('.mini a[data-subject]');
+    if (!a || !(e.ctrlKey || e.metaKey || e.shiftKey)) return;
+    e.preventDefault();
+    if (a.dataset.system !== system) { picked.clear(); system = a.dataset.system; part = a.dataset.part; }
+    if (picked.has(a.dataset.subject)) picked.delete(a.dataset.subject); else picked.set(a.dataset.subject, Number(a.dataset.mspt));
+    draw();
+  });
+  bar.querySelector('.js-pick-clear').addEventListener('click', () => { picked.clear(); draw(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && picked.size > 0) { picked.clear(); draw(); } });
+})();
+</script>`;
 }
 
 /** "code in com.bawnorton.neruina.handler.TickHandler" reads as "code in TickHandler"; the full name is on hover. */

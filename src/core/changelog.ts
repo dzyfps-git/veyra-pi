@@ -18,6 +18,15 @@ export interface Release {
 
 export const CHANGELOG: Release[] = [
   {
+    version: '0.1.29',
+    date: '2026-09-26',
+    notes: [
+      'Ctrl-click to pick several things now keeps the one already open, and works on a minute’s page too (Open together).',
+      'No more glow under buttons, list rows and bars.',
+      'The page rail on the left is wider, with larger labels.',
+    ],
+  },
+  {
     version: '0.1.28',
     date: '2026-09-26',
     notes: [

@@ -65,11 +65,6 @@ const STYLE = `<style>
 .things a:hover { background: var(--surface-3); text-decoration: none; }
 .things a.on { background: var(--surface-3); outline: 1px solid var(--accent); }
 .things a.picked { background: var(--accent-soft); outline: 1px solid var(--accent); }
-/* Several things picked with Ctrl-click, handed off together. */
-.pick-bar { position: sticky; bottom: 14px; z-index: 4; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px;
-  padding: 8px 10px 8px 16px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border-soft); box-shadow: var(--shadow); font-size: 13px; }
-.pick-bar .fig { font-family: var(--mono); font-weight: 700; color: var(--text-strong); }
-.pick-bar .grow { flex: 1; }
 .things .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .things .nm .tag { margin-left: 4px; font-size: 10.5px; }
 .things .fig { font-family: var(--mono); font-variant-numeric: tabular-nums; font-weight: 650; }
@@ -985,6 +980,8 @@ ${body}
       const a = e.target.closest?.('.things a[data-key]');
       if (!a || !(e.ctrlKey || e.metaKey || e.shiftKey)) return;
       e.preventDefault();
+      // The thing already open counts as the first pick: open one, Ctrl-click another, two are picked.
+      if (picked.size === 0) for (const o of on) if (o !== a) picked.set(o.dataset.key, Number(o.dataset.mspt));
       if (picked.has(a.dataset.key)) picked.delete(a.dataset.key); else picked.set(a.dataset.key, Number(a.dataset.mspt));
       draw();
     });

@@ -218,7 +218,7 @@ export function css(_branding: Branding): string {
   --radius-glass: 18px;
   --radius-tile: 12px;
   --topbar-h: 64px;
-  --rail-w: 76px;
+  --rail-w: 92px;
   /* Solid stand-ins for glass where something must cover what is under it: menus, tips, dialogs. */
   --surface: color-mix(in srgb, #fff 5%, var(--ground));
   --surface-2: color-mix(in srgb, #fff 8%, var(--ground));
@@ -342,23 +342,24 @@ a:hover { text-decoration: underline; text-underline-offset: 2px; }
 /* ---------------------------------------------------------------- rail */
 .rail {
   grid-row: 2; position: sticky; top: var(--topbar-h); height: calc(100vh - var(--topbar-h)); overflow-y: auto; scrollbar-width: none;
-  display: flex; flex-direction: column; gap: 4px; padding: 14px 8px 12px;
+  display: flex; flex-direction: column; gap: 4px; padding: 14px 10px 12px;
   border-right: 1px solid var(--focus-line); background: linear-gradient(to right, rgba(0,0,0,.3), transparent);
 }
 .rail-gap { height: 12px; flex: none; }
 .rail-item {
-  color: var(--text-faint); display: flex; flex-direction: column; align-items: center; gap: 5px; flex: none;
-  padding: 10px 0 8px; border-radius: var(--radius-tile); position: relative;
-  font: 500 8.5px/1.2 var(--mono); letter-spacing: .14em; text-transform: uppercase; text-align: center;
+  color: var(--text-faint); display: flex; flex-direction: column; align-items: center; gap: 6px; flex: none;
+  padding: 11px 0 9px; border-radius: var(--radius-tile); position: relative;
+  font: 500 9.5px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; text-align: center;
   transition: background .2s var(--ease), color .2s var(--ease);
 }
 .rail-item:hover { background: rgba(255,255,255,.04); color: var(--text); text-decoration: none; }
 .rail-item.active { color: var(--focus); background: var(--focus-soft); }
-.rail-item.active::before { content: ""; position: absolute; left: -8px; top: 12px; bottom: 12px; width: 2px; border-radius: 2px; background: var(--focus); box-shadow: 0 0 12px var(--focus); }
-.rail-item .badge { position: absolute; top: 4px; right: 9px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
+.rail-item .icon { width: 20px; height: 20px; }
+.rail-item.active::before { content: ""; position: absolute; left: -10px; top: 12px; bottom: 12px; width: 2px; border-radius: 2px; background: var(--focus); box-shadow: 0 0 12px var(--focus); }
+.rail-item .badge { position: absolute; top: 4px; right: 14px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
   background: var(--warn); color: #15171C; font: 700 9.5px/16px var(--mono); letter-spacing: 0; }
 .rail-foot { margin-top: auto; display: flex; flex-direction: column; align-items: center; gap: 8px; padding-top: 12px; }
-.rail-foot .version { font: 500 9px var(--mono); letter-spacing: .08em; color: var(--text-faint); }
+.rail-foot .version { font: 500 10px var(--mono); letter-spacing: .08em; color: var(--text-faint); }
 .rail-foot .version:hover { color: var(--text); text-decoration: none; }
 
 main.stage { grid-column: 2; min-width: 0; padding: 26px 30px 90px; }
@@ -428,7 +429,7 @@ code { background: var(--well); border: 1px solid var(--glass-edge); border-radi
 .stat.tone-bad .stat-value { color: var(--bad); }
 .stat.tone-ok .stat-value { color: var(--ok); }
 .meter { height: 3px; border-radius: 3px; background: rgba(255,255,255,.07); overflow: hidden; }
-.meter > span { display: block; height: 100%; background: linear-gradient(90deg, rgba(var(--focus-rgb), .5), var(--focus)); box-shadow: 0 0 10px var(--focus); }
+.meter > span { display: block; height: 100%; background: var(--focus); }
 
 .banner { display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin: 0 0 18px; }
 .banner-icon { flex: none; }
@@ -546,7 +547,6 @@ button, .button {
   display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   background: var(--focus); color: var(--on-focus); border: 1px solid transparent;
   border-radius: 999px; padding: 9px 18px; font: 700 13px/1.3 var(--sans); cursor: pointer; white-space: nowrap;
-  box-shadow: 0 0 18px rgba(var(--focus-rgb), .32);
   transition: filter .2s var(--ease), background .2s var(--ease), border-color .2s var(--ease), color .2s var(--ease);
 }
 button:hover, .button:hover { filter: brightness(1.08); text-decoration: none; }
@@ -554,7 +554,7 @@ button.ghost, .button.ghost { background: rgba(255,255,255,.04); color: var(--te
 button.ghost:hover, .button.ghost:hover { background: var(--focus-soft); border-color: rgba(var(--focus-rgb), .4); color: var(--text-strong); filter: none; }
 button.small, .button.small { padding: 4px 12px; font-size: 12px; }
 button.quiet { background: transparent; color: var(--focus); border: none; padding: 4px 6px; box-shadow: none; }
-button.danger { background: var(--bad); color: #1A0E0E; box-shadow: 0 0 18px rgba(240,85,77,.3); }
+button.danger { background: var(--bad); color: #1A0E0E; }
 button:disabled, button:disabled:hover { background: var(--well); color: var(--text-faint); border-color: rgba(255,255,255,.06); box-shadow: none; cursor: not-allowed; filter: none; }
 select:disabled, option:disabled { color: var(--text-faint); }
 
@@ -565,9 +565,14 @@ select:disabled, option:disabled { color: var(--text-faint); }
 }
 .sticky-save .status { color: var(--text-dim); font-size: 12.5px; }
 
+/* Several things picked with Ctrl-click, opened or handed off together (Findings, a minute). */
+.pick-bar { position: sticky; bottom: 14px; z-index: 4; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px;
+  padding: 8px 10px 8px 16px; border-radius: 999px; background: var(--surface-2); border: 1px solid rgba(var(--focus-rgb), .35); box-shadow: 0 20px 50px -24px rgba(0,0,0,.9); font-size: 13px; }
+.pick-bar .fig { font-family: var(--mono); font-weight: 700; color: var(--text-strong); }
+.pick-bar .grow { flex: 1; }
 .empty { color: var(--text-dim); padding: 34px; text-align: center; border: 1px dashed rgba(255,255,255,.12); border-radius: var(--radius-glass); font-size: 13px; }
 .bar { height: 5px; background: rgba(255,255,255,.07); border-radius: 3px; overflow: hidden; }
-.bar > i { display: block; height: 100%; background: var(--focus); box-shadow: 0 0 8px rgba(var(--focus-rgb), .6); }
+.bar > i { display: block; height: 100%; background: var(--focus); }
 
 /* ---------------------------------------------------------------- timeline */
 .timeline { position: relative; margin: 4px 0 0 6px; padding-left: 22px; border-left: 1px solid var(--focus-line); }
